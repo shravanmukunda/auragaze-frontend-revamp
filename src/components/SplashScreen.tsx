@@ -105,7 +105,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
                 duration: 0.55,
                 ease: [0.22, 1, 0.36, 1],
               }}
-              className="text-[2.75rem] font-black text-white sm:text-5xl"
+              className="font-heading text-[2.75rem] font-black text-white sm:text-5xl"
             >
               {char}
             </motion.span>

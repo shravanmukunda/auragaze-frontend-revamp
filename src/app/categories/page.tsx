@@ -7,7 +7,7 @@ import { categories, products } from "@/lib/data";
 
 export default function CategoriesPage() {
   return (
-    <div className="min-h-screen pb-28">
+    <div className="min-h-screen pb-6">
       <TopBar title="Categories" />
 
       <div className="pt-20 max-w-lg mx-auto px-4">

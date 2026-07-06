@@ -42,7 +42,7 @@ export default function TopBar({ title, transparent = false }: TopBarProps) {
                 </h1>
               ) : (
                 <div className="flex items-center gap-1.5">
-                  <span className="font-black text-xl tracking-wider text-brand">
+                  <span className="font-heading font-black text-xl tracking-wider text-brand">
                     AURAGAZE
                   </span>
                 </div>

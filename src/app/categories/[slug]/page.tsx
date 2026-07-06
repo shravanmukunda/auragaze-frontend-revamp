@@ -18,7 +18,7 @@ export default function CategoryDetailPage({ params }: PageProps) {
   const categoryProducts = getProductsByCategory(slug);
 
   return (
-    <div className="min-h-screen pb-28">
+    <div className="min-h-screen pb-6">
       {/* Header */}
       <div className="fixed top-0 left-0 right-0 z-40 glass border-b border-[var(--glass-border)]">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">

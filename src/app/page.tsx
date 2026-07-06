@@ -16,7 +16,7 @@ const newArrivals = products.filter((p) => p.badge === "new").slice(0, 4);
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen pb-28">
+    <div className="min-h-screen pb-6">
       <TopBar />
 
       <ScrollHero videoSrc={HERO_VIDEO_SRC}>

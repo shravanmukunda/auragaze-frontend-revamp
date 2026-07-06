@@ -17,7 +17,7 @@ export default function CartPage() {
   const total = subtotal + shipping;
 
   return (
-    <div className={`min-h-screen ${hasItems ? "pb-52" : "pb-28"}`}>
+    <div className={`min-h-screen ${hasItems ? "pb-52" : "pb-6"}`}>
       <TopBar title="Cart" />
 
       <div className="pt-16 max-w-lg mx-auto px-4">

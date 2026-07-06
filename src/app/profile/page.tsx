@@ -34,7 +34,7 @@ const stats = [
 
 export default function ProfilePage() {
   return (
-    <div className="min-h-screen pb-28">
+    <div className="min-h-screen pb-6">
       <TopBar title="Profile" />
 
       <div className="pt-16 max-w-lg mx-auto">

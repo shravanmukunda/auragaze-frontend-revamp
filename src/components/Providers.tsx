@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { ThemeProvider } from "next-themes";
 import { CartProvider } from "@/context/CartContext";
 import FloatingNav from "./FloatingNav";
+import Footer from "./Footer";
 import SplashScreen from "./SplashScreen";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -17,6 +18,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         {appReady && (
           <>
             {children}
+            <Footer />
             <FloatingNav />
           </>
         )}
