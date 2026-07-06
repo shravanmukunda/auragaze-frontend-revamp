@@ -13,6 +13,46 @@ function getViewportHeight() {
   return window.visualViewport?.height ?? window.innerHeight;
 }
 
+function drawCover(
+  ctx: CanvasRenderingContext2D,
+  source: CanvasImageSource,
+  sourceWidth: number,
+  sourceHeight: number,
+  canvasWidth: number,
+  canvasHeight: number,
+) {
+  const sourceRatio = sourceWidth / sourceHeight;
+  const canvasRatio = canvasWidth / canvasHeight;
+  let drawWidth: number;
+  let drawHeight: number;
+  let offsetX: number;
+  let offsetY: number;
+
+  if (sourceRatio > canvasRatio) {
+    drawHeight = canvasHeight;
+    drawWidth = sourceWidth * (canvasHeight / sourceHeight);
+    offsetX = (canvasWidth - drawWidth) / 2;
+    offsetY = 0;
+  } else {
+    drawWidth = canvasWidth;
+    drawHeight = sourceHeight * (canvasWidth / sourceWidth);
+    offsetX = 0;
+    offsetY = (canvasHeight - drawHeight) / 2;
+  }
+
+  ctx.drawImage(source, offsetX, offsetY, drawWidth, drawHeight);
+}
+
+function waitForSeek(video: HTMLVideoElement) {
+  return new Promise<void>((resolve) => {
+    video.addEventListener("seeked", () => resolve(), { once: true });
+  });
+}
+
+function nextFrame() {
+  return new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+}
+
 export default function ScrollHero({
   videoSrc,
   mobileVideoSrc,
@@ -22,27 +62,42 @@ export default function ScrollHero({
   const sectionRef = useRef<HTMLElement>(null);
   const stickyRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [videoVisible, setVideoVisible] = useState(false);
 
   useLayoutEffect(() => {
     const section = sectionRef.current;
     const sticky = stickyRef.current;
     const video = videoRef.current;
-    if (!section || !sticky || !video) return;
+    const canvas = canvasRef.current;
+    if (!section || !sticky || !video || !canvas) return;
 
+    const ctx = canvas.getContext("2d", { alpha: false });
+    if (!ctx) return;
+
+    const isMobile = window.matchMedia("(max-width: 768px)").matches;
     const resolvedSrc =
-      mobileVideoSrc && window.matchMedia("(max-width: 768px)").matches
-        ? mobileVideoSrc
-        : videoSrc;
+      mobileVideoSrc && isMobile ? mobileVideoSrc : videoSrc;
+
     video.src = resolvedSrc;
     video.load();
 
+    canvas.style.visibility = "hidden";
+
     let duration = 0;
     let ready = false;
-    let rafId = 0;
     let scrollRange = getViewportHeight();
     let sectionTop = 0;
     let lastTargetTime = -1;
+    let cancelled = false;
+    let frames: ImageBitmap[] = [];
+    let frameWidth = 0;
+    let frameHeight = 0;
+    let currentFrame = -1;
+    let useFrameCache = false;
+    let scrolling = false;
+    let scrollEndTimer = 0;
+    let tickId = 0;
 
     const syncLayout = () => {
       const vh = getViewportHeight();
@@ -50,19 +105,30 @@ export default function ScrollHero({
       sectionTop = section.offsetTop;
       sticky.style.height = `${vh}px`;
       section.style.height = `${vh * 2}px`;
+      canvas.width = sticky.clientWidth;
+      canvas.height = sticky.clientHeight;
+      currentFrame = -1;
     };
 
-    const scrub = () => {
-      if (!ready || duration <= 0 || scrollRange <= 0) return;
-      if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
-
+    const getProgress = () => {
+      if (scrollRange <= 0) return 0;
       const scrolled = window.scrollY - sectionTop;
-      const progress = Math.min(1, Math.max(0, scrolled / scrollRange));
+      return Math.min(1, Math.max(0, scrolled / scrollRange));
+    };
+
+    const drawFrame = (index: number) => {
+      if (index < 0 || index >= frames.length) return;
+      if (index === currentFrame) return;
+      currentFrame = index;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawCover(ctx, frames[index], frameWidth, frameHeight, canvas.width, canvas.height);
+    };
+
+    const scrubVideo = (progress: number) => {
+      if (duration <= 0) return;
       const targetTime = progress * duration;
-
-      if (Math.abs(targetTime - lastTargetTime) < 0.04) return;
+      if (Math.abs(targetTime - lastTargetTime) < 0.03) return;
       lastTargetTime = targetTime;
-
       if (typeof video.fastSeek === "function") {
         video.fastSeek(targetTime);
       } else {
@@ -70,9 +136,104 @@ export default function ScrollHero({
       }
     };
 
+    const scrub = () => {
+      if (!ready || scrollRange <= 0) return;
+
+      const progress = getProgress();
+
+      if (useFrameCache && frames.length > 0) {
+        const index = Math.min(
+          frames.length - 1,
+          Math.round(progress * (frames.length - 1)),
+        );
+        drawFrame(index);
+        return;
+      }
+
+      if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        scrubVideo(progress);
+      }
+    };
+
+    const tick = () => {
+      scrub();
+      if (scrolling) tickId = requestAnimationFrame(tick);
+    };
+
     const onScroll = () => {
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(scrub);
+      if (!scrolling) {
+        scrolling = true;
+        tickId = requestAnimationFrame(tick);
+      }
+      window.clearTimeout(scrollEndTimer);
+      scrollEndTimer = window.setTimeout(() => {
+        scrolling = false;
+        cancelAnimationFrame(tickId);
+        scrub();
+      }, 80);
+    };
+
+    const captureFrames = async () => {
+      if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+      if (typeof createImageBitmap !== "function") return;
+
+      const maxFrames = isMobile ? 32 : 44;
+      const maxWidth = isMobile ? 480 : 720;
+      const frameCount = Math.min(
+        maxFrames,
+        Math.max(16, Math.round(duration * 24)),
+      );
+
+      const scale = Math.min(1, maxWidth / video.videoWidth);
+      frameWidth = Math.round(video.videoWidth * scale);
+      frameHeight = Math.round(video.videoHeight * scale);
+
+      const captureCanvas = document.createElement("canvas");
+      captureCanvas.width = frameWidth;
+      captureCanvas.height = frameHeight;
+      const captureCtx = captureCanvas.getContext("2d", { alpha: false });
+      if (!captureCtx) return;
+
+      video.pause();
+
+      const nextFrames: ImageBitmap[] = [];
+      for (let i = 0; i < frameCount; i++) {
+        if (cancelled) {
+          nextFrames.forEach((frame) => frame.close());
+          return;
+        }
+
+        const time = frameCount === 1 ? 0 : (i / (frameCount - 1)) * duration;
+        video.currentTime = time;
+        await waitForSeek(video);
+        captureCtx.drawImage(video, 0, 0, frameWidth, frameHeight);
+        nextFrames.push(await createImageBitmap(captureCanvas));
+        if (i % 3 === 2) await nextFrame();
+      }
+
+      if (cancelled) {
+        nextFrames.forEach((frame) => frame.close());
+        return;
+      }
+
+      frames.forEach((frame) => frame.close());
+      frames = nextFrames;
+      useFrameCache = true;
+      video.style.visibility = "hidden";
+      canvas.style.visibility = "visible";
+      currentFrame = -1;
+      scrub();
+    };
+
+    const startCapture = () => {
+      const run = () => {
+        if (!cancelled) void captureFrames();
+      };
+      if ("requestIdleCallback" in window) {
+        requestIdleCallback(run, { timeout: 1500 });
+      } else {
+        setTimeout(run, 300);
+      }
     };
 
     const onReady = () => {
@@ -83,11 +244,13 @@ export default function ScrollHero({
       lastTargetTime = -1;
       setVideoVisible(true);
       scrub();
+      startCapture();
     };
 
     const onResize = () => {
       syncLayout();
       lastTargetTime = -1;
+      currentFrame = -1;
       scrub();
     };
 
@@ -102,12 +265,15 @@ export default function ScrollHero({
     if (video.readyState >= HTMLMediaElement.HAVE_METADATA) onReady();
 
     return () => {
-      cancelAnimationFrame(rafId);
+      cancelled = true;
+      cancelAnimationFrame(tickId);
+      window.clearTimeout(scrollEndTimer);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
       window.visualViewport?.removeEventListener("resize", onResize);
       video.removeEventListener("loadedmetadata", onReady);
       video.removeEventListener("canplay", onReady);
+      frames.forEach((frame) => frame.close());
     };
   }, [videoSrc, mobileVideoSrc]);
 
@@ -134,6 +300,12 @@ export default function ScrollHero({
           className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
             videoVisible ? "opacity-100" : "opacity-0"
           }`}
+          aria-hidden
+        />
+
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 h-full w-full"
           aria-hidden
         />
 
