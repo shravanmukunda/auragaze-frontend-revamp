@@ -1,13 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useCallback, useLayoutEffect, useState } from "react";
+import Image from "next/image";
+import { useCallback, useEffect, useState } from "react";
 
 const SPLASH_KEY = "auragaze-splash-seen";
 const MIN_DURATION_MS = 2800;
 const EXIT_MS = 900;
-
-const letters = "AURAGAZE".split("");
 
 type Phase = "hidden" | "enter" | "exit";
 
@@ -24,7 +23,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
     onComplete();
   }, [onComplete]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const preload = (href: string, as: string, type?: string) => {
       if (document.querySelector(`link[rel="preload"][href="${href}"]`)) return;
       const link = document.createElement("link");
@@ -45,8 +44,8 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
     );
 
     if (sessionStorage.getItem(SPLASH_KEY)) {
-      finish();
-      return;
+      const completeTimer = window.setTimeout(finish, 0);
+      return () => window.clearTimeout(completeTimer);
     }
 
     document.body.style.overflow = "hidden";
@@ -113,23 +112,24 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
       />
 
       <div className="relative z-10 flex flex-col items-center px-6">
-        <div className="flex tracking-[0.22em]" aria-label="AURAGAZE">
-          {letters.map((char, i) => (
-            <motion.span
-              key={i}
-              initial={{ opacity: 0, y: 28, filter: "blur(8px)" }}
-              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-              transition={{
-                delay: 0.35 + i * 0.07,
-                duration: 0.55,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-              className="font-heading text-[2.75rem] font-black text-white sm:text-5xl"
-            >
-              {char}
-            </motion.span>
-          ))}
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 28, filter: "blur(8px)", scale: 0.8 }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)", scale: 1 }}
+          transition={{
+            delay: 0.2,
+            duration: 0.6,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+          className="mb-6 relative w-[85vw] max-w-[280px] h-[180px] sm:max-w-[400px] sm:h-[260px] md:max-w-[500px] md:h-[320px]"
+        >
+          <Image
+            src="/logo/logo.svg"
+            alt="Logo"
+            fill
+            priority
+            className="h-full w-full object-contain"
+          />
+        </motion.div>
 
         <motion.div
           className="mt-4 h-[2px] rounded-full bg-gradient-to-r from-transparent via-blue-400 to-transparent"

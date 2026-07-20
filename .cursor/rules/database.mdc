@@ -1,0 +1,32 @@
+---
+description: Prisma schema, migration, and seed conventions for AURAGAZE
+globs: prisma/**,src/app/api/**,src/lib/prisma.ts
+alwaysApply: false
+---
+
+# Database & Prisma Conventions
+
+- Postgres runs via `docker compose up -d` (host port **5433**). `DATABASE_URL`,
+  seed admin creds, and NextAuth vars live in `.env` (template: `.env.example`).
+- Import the singleton client from `@/lib/prisma`. Never `new PrismaClient()` in
+  app/API code (seed script is the only exception).
+
+## Schema
+- Extend existing models; keep enums (`ProductBadge`, `PaymentMethod`,
+  `PaymentStatus`, `OrderStatus`, `Role`, `InventoryType`) authoritative.
+- Preserve the unique constraints: `Product.slug`,
+  `ProductVariant(productId, size, color)`, `CartItem(cartId, variantId)`,
+  `WishlistItem(userId, productId)`.
+- After editing `schema.prisma`: `npx prisma format && npx prisma validate`.
+
+## Migrations
+- Prefer `npx prisma migrate dev --name <change>` when the DB is reachable.
+- If the daemon is down, hand-write the SQL under
+  `prisma/migrations/<timestamp>_<name>/migration.sql` and make it data-safe
+  (add nullable column → backfill → set NOT NULL), then apply later with
+  `npx prisma migrate deploy`. Never edit an already-applied migration.
+
+## Inventory invariant
+- Any stock change MUST write an `InventoryTransaction` (IN / OUT / ADJUSTMENT)
+  in the same `prisma.$transaction` that mutates `ProductVariant.stock`.
+- Checkout decrements stock + logs OUT atomically; cancellations reverse it.

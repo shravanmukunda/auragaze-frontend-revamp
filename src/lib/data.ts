@@ -40,6 +40,8 @@ export interface CarouselCategory {
 export const FREE_SHIPPING_THRESHOLD = 4000;
 export const SHIPPING_FEE = 99;
 
+// These category definitions still power storefront presentation, but live counts
+// are now derived from catalog API data at runtime.
 export const carouselCategories: CarouselCategory[] = [
   {
     "id": "c1",
@@ -156,6 +158,8 @@ export const categories: Category[] = [
   }
 ];
 
+// Legacy mock catalog kept only for seed/bootstrap data. Storefront pages should
+// read products from the catalog API via CatalogContext instead of importing this.
 export const products: Product[] = [
   {
     "id": "1",

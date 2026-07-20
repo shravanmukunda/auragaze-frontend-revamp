@@ -5,6 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { carouselCategories, type CarouselCategory } from "@/lib/data";
+import { useCatalog } from "@/context/CatalogContext";
+import { getLiveCarouselCategories } from "@/lib/category-utils";
 import { cn } from "@/lib/utils";
 
 const CARD_W = 248;
@@ -123,12 +125,14 @@ function CarouselCard({ category, offset, isActive, onSelect, didDragRef }: Caro
 }
 
 export default function CategoryCarousel() {
+  const { products } = useCatalog();
+  const liveCategories = getLiveCarouselCategories(carouselCategories, products);
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const wheelLocked = useRef(false);
   const didDrag = useRef(false);
 
-  const total = carouselCategories.length;
+  const total = liveCategories.length;
 
   const paginate = useCallback(
     (direction: 1 | -1) => {
@@ -148,8 +152,16 @@ export default function CategoryCarousel() {
   };
 
   useEffect(() => {
+    if (total === 0) {
+      setActiveIndex(0);
+      return;
+    }
+    setActiveIndex((prev) => prev % total);
+  }, [total]);
+
+  useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el || total === 0) return;
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -167,15 +179,19 @@ export default function CategoryCarousel() {
 
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [paginate]);
+  }, [paginate, total]);
 
-  const sortedCards = carouselCategories
+  const sortedCards = liveCategories
     .map((category, index) => ({
       category,
       index,
       offset: wrapOffset(index, activeIndex, total),
     }))
     .sort((a, b) => getCardStyle(a.offset).zIndex - getCardStyle(b.offset).zIndex);
+
+  if (total === 0) {
+    return null;
+  }
 
   return (
     <section className="relative px-1 pt-6 pb-1 max-w-lg mx-auto">

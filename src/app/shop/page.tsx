@@ -2,16 +2,18 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
-import { SlidersHorizontal, X } from "lucide-react";
+import { LoaderCircle, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import TopBar from "@/components/TopBar";
 import ProductCard from "@/components/ProductCard";
-import { products, shopFilters } from "@/lib/data";
+import { shopFilters } from "@/lib/data";
+import { useCatalog } from "@/context/CatalogContext";
 import { cn } from "@/lib/utils";
 
 const filters = shopFilters;
 const sortOptions = ["Featured", "Price: Low to High", "Price: High to Low", "Newest", "Top Rated"];
 
 export default function ShopPage() {
+  const { products, loading, error, refresh } = useCatalog();
   const [activeFilter, setActiveFilter] = useState("All");
   const [activeSort, setActiveSort] = useState("Featured");
   const [showSortSheet, setShowSortSheet] = useState(false);
@@ -30,8 +32,10 @@ export default function ShopPage() {
     switch (activeSort) {
       case "Price: Low to High": return a.price - b.price;
       case "Price: High to Low": return b.price - a.price;
+    case "Newest": return Date.parse(b.createdAt) - Date.parse(a.createdAt);
       case "Top Rated": return b.rating - a.rating;
-      default: return 0;
+    default:
+      return Number(b.isFeatured) - Number(a.isFeatured);
     }
   });
 
@@ -73,6 +77,27 @@ export default function ShopPage() {
         </div>
 
         {/* Products Grid */}
+        {loading && (
+          <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted">
+            <LoaderCircle size={18} className="animate-spin" />
+            Loading products…
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="flex flex-col items-center justify-center gap-4 px-4 py-20 text-center">
+            <p className="text-sm text-muted">{error}</p>
+            <button
+              onClick={() => void refresh()}
+              className="filter-chip filter-chip-active inline-flex items-center gap-2"
+            >
+              <RotateCcw size={14} />
+              Try again
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && (
         <div className="px-4 grid grid-cols-2 gap-3">
           <AnimatePresence mode="popLayout">
             {sorted.map((product, i) => (
@@ -89,8 +114,9 @@ export default function ShopPage() {
             ))}
           </AnimatePresence>
         </div>
+        )}
 
-        {sorted.length === 0 && (
+        {!loading && !error && sorted.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

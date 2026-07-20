@@ -2,12 +2,13 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import Image from "next/image";
-import type { Product } from "@/lib/data";
+import RemoteImage from "@/components/RemoteImage";
+import WishlistButton from "@/components/WishlistButton";
+import type { StorefrontProduct } from "@/types/product";
 import { formatPrice } from "@/lib/utils";
 
 interface ProductCardProps {
-  product: Product;
+  product: StorefrontProduct;
   index?: number;
 }
 
@@ -21,15 +22,16 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
       className="group"
     >
       <Link href={`/product/${product.id}`} className="block">
-        {/* Photo card */}
         <div className="relative aspect-[3/4] overflow-hidden rounded-xl">
-          <Image
+          <RemoteImage
             src={product.image}
             alt={product.name}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes="(max-width: 768px) 50vw, 33vw"
           />
+          <div className="absolute right-2 top-2">
+            <WishlistButton productId={product.id} className="h-9 w-9" iconSize={15} />
+          </div>
         </div>
 
         {/* Name & price below the image */}

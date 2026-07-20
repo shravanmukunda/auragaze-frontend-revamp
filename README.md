@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AURAGAZE
 
-## Getting Started
+A mobile-first t-shirt storefront built with Next.js 16, Prisma, PostgreSQL,
+and NextAuth. Product requirements and implementation sequencing live in
+[`docs/PRD.md`](docs/PRD.md) and [`docs/SPRINT_PLAN.md`](docs/SPRINT_PLAN.md).
 
-First, run the development server:
+## What is included
+
+- Storefront: live catalog, category/shop/PDP flows, guest + account cart, COD checkout
+- Customer account: auth, orders, wishlist, saved addresses, promo codes
+- Admin: dashboard, products, inventory adjustments, order fulfillment
+- Seed data: full starter catalog, admin account, and promo code `AURA20`
+
+## Local setup
 
 ```bash
+npm install
+cp .env.example .env
+docker compose up -d
+npx prisma migrate deploy
+npx prisma db seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). PostgreSQL is exposed on
+host port `5433`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Default local access
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Storefront: [http://localhost:3000](http://localhost:3000)
+- Admin login: [http://localhost:3000/login](http://localhost:3000/login)
+- Admin area: [http://localhost:3000/admin](http://localhost:3000/admin)
+- Seeded admin email: `admin@auragaze.local`
+- Seeded admin password: the value of `ADMIN_PASSWORD` in `.env`
 
-## Learn More
+If you do not set `ADMIN_PASSWORD`, the seed falls back to
+`change-me-before-production` for local development only.
 
-To learn more about Next.js, take a look at the following resources:
+## Environment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Copy `.env.example` and set:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `DATABASE_URL` — PostgreSQL connection string
+- `NEXTAUTH_SECRET` — a random secret (`openssl rand -base64 32`)
+- `NEXTAUTH_URL` — application origin
+- `ADMIN_EMAIL` / `ADMIN_PASSWORD` — credentials created by the seed
 
-## Deploy on Vercel
+Never use the example admin password outside local development.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Seeded data
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Product catalog with variants and starting inventory
+- Admin user from `ADMIN_EMAIL` / `ADMIN_PASSWORD`
+- Promo code `AURA20` for 20% off, capped at `₹2000`
+
+## Database commands
+
+```bash
+npx prisma migrate dev       # create/apply a development migration
+npx prisma migrate deploy    # apply committed migrations
+npx prisma db seed           # idempotently seed products and the admin
+npx prisma studio            # inspect local data
+```
+
+## Verification checklist
+
+Sprint progress and QA notes live in [`docs/SPRINT_PLAN.md`](docs/SPRINT_PLAN.md).
+Use the Sprint 9 checklist there for guest browse, cart, checkout, orders, and
+admin smoke testing.

@@ -1,0 +1,141 @@
+---
+description: Architectural decisions and rationale for AURAGAZE (append new ones here)
+alwaysApply: true
+---
+
+# Decision Log
+
+Append new decisions with date + rationale. Newest first.
+
+## 2026-07-20 — Promo Codes
+- **`PromoCode` model + `Order.promoCode` snapshot.** Codes support
+  `PERCENTAGE` or `FIXED` discounts with optional min order, max discount cap,
+  expiry, and usage limits.
+- **Server-side validation only.** `POST /api/promo-codes/validate` previews
+  discount; checkout re-validates and increments `usedCount` in the order
+  transaction.
+- **Seeded `AURA20`.** 20% off, capped at ₹2000. Applied on cart and checkout.
+
+## 2026-07-20 — Sprint 8 Customer Extras
+- **Search uses the public products API.** `/search` debounces `q` against
+  `GET /api/products?q=` (name, brand, category).
+- **Wishlist is auth-only and DB-backed.** `WishlistProvider` syncs product IDs
+  via `/api/wishlist`; hearts on PDP/cards toggle persist for logged-in users.
+- **Address book CRUD under profile.** `/profile/addresses` with
+  `GET/POST /api/addresses` and `PATCH/DELETE /api/addresses/[id]`.
+- **Checkout can pick a saved address.** Saved cards prefill the shipping form;
+  new addresses can still be entered and optionally saved.
+
+## 2026-07-20 — Sprint 7 Admin Orders + Dashboard
+- **Order status transitions are strict.** Allowed flow:
+  `PENDING → CONFIRMED → SHIPPED → DELIVERED`. Cancel only from
+  `PENDING` or `CONFIRMED`; shipped/delivered orders are terminal for cancel.
+- **Cancel restores stock once.** Cancelling before ship writes `IN`
+  `InventoryTransaction` rows and increments matching variants (lookup by
+  snapshot `productName` + `size` + `color`).
+- **Dashboard stats are DB-backed.** `/admin` and `GET /api/admin/stats` expose
+  COD revenue (non-cancelled), orders today, open orders, low-stock count,
+  and recent orders.
+
+## 2026-07-20 — Sprint 6 Inventory
+- **Inventory is variant-first.** `/admin/inventory` lists `ProductVariant` rows
+  (product, color/size, SKU, stock) with a global low-stock threshold of 5.
+- **Adjustments are transactional.** `POST /api/admin/inventory` updates stock
+  and writes an `InventoryTransaction` in one Prisma `$transaction`.
+  - `IN` / `OUT`: relative quantity changes; OUT rejects insufficient stock.
+  - `ADJUSTMENT`: sets absolute stock; ledger quantity is `|delta|`.
+- **History is per-variant.** `GET /api/admin/inventory/[variantId]` returns the
+  ledger (including checkout `OUT` rows) for the history drawer.
+- **Admin APIs still call `requireAdmin()`** in addition to `proxy.ts`.
+
+## 2026-07-20 — Sprint 4 Checkout & Orders
+- **Checkout is transactional.** `placeOrder` runs in a Prisma `$transaction`:
+  validate cart → create order snapshot → decrement stock with
+  `updateMany` + `stock: { gte: quantity }` guard → write `InventoryTransaction`
+  OUT → clear cart. Race oversells abort the transaction.
+- **Inline address on checkout for MVP.** Checkout accepts a shipping address
+  payload and stores a JSON snapshot on `Order.shippingAddress`. Optional
+  `saveAddress` writes to the `Address` table for later reuse (Sprint 8).
+- **Customer order surfaces.** `/checkout`, `/orders`, `/orders/[id]`, and
+  `/orders/confirmation/[id]` are auth-protected via `proxy.ts`. Profile →
+  My Orders links to `/orders`.
+- **COD only for MVP.** Orders default to `paymentMethod: COD` and
+  `paymentStatus: PENDING`.
+
+## 2026-07-20 — Sprint 3 Cart Sync
+- **Cart lines are keyed by `variantId`.** Guest storage, API payloads, and UI all
+  use `{ variantId, quantity }`. Legacy localStorage entries
+  (`productId` + `colorIndex` + `size`) are migrated on read via catalog lookup.
+- **One cart API surface.** `/api/cart` handles GET, POST (add or merge guest
+  cart), PATCH (quantity), and DELETE (item or clear). The old `/api/cart/add`
+  route was removed.
+- **Server is source of truth for authenticated users.** `CartContext` fetches
+  enriched lines from the API; guest carts stay in localStorage until login,
+  then merge into the DB cart with stock caps applied transactionally.
+- **Enriched cart lines are shared.** `EnrichedCartLine` in `src/types/cart.ts`
+  carries product name, image, price, size, color, and stock so the cart page
+  does not need catalog lookups.
+
+## 2026-07-19 — Sprint 2 Database Catalog
+- **One storefront product contract.** `StorefrontProduct` and variant types live
+  in `src/types/product.ts`; `mapProduct` is the only Prisma → UI conversion.
+  Prisma `Decimal`/enum/date values become JSON-safe numbers/lowercase/ISO text.
+- **Catalog state is shared client-side.** `CatalogProvider` fetches the public
+  products API once and supplies products/helpers to home, shop, categories,
+  product detail, and the transitional local cart. Sprint 3 can build DB cart
+  sync without reintroducing mock lookups.
+- **Public API supports server filters.** `/api/products` accepts `category`,
+  `subcategory`, `badge`, `featured`, `q`, `sort`, and bounded `limit`; detail
+  resolves either product ID or slug and excludes inactive products.
+- **Variants are authoritative for availability.** UI colors/sizes come from
+  variants. Product detail selects a live combination, caps quantity to that
+  variant, and disables out-of-stock choices.
+- **Category art remains static; counts/products are live.** Existing category
+  visual metadata stays in `data.ts`, while counts and grids derive from DB data.
+- **Splash session check runs after hydration.** `useEffect` replaced
+  `useLayoutEffect` so sessionStorage cannot make the first client render differ
+  from server HTML.
+
+## 2026-07-19 — Sprint 1 Authentication
+- **Credentials auth remains NextAuth 4 + JWT.** `SessionProvider` wraps the app;
+  JWT/session callbacks expose stable `user.id` and `user.role`.
+- **Registration auto-signs in.** After `POST /api/register`, the UI calls the
+  Credentials provider and returns to a validated relative `callbackUrl`. If
+  auto-login fails, it falls back to `/login` without losing the destination.
+- **Registration input is normalized and bounded.** Email is lowercase/trimmed,
+  names are 2–80 chars, passwords 8–128 chars and bcrypt cost 12. Responses
+  never expose password hashes; duplicate emails return 409.
+- **Proxy protects `/profile`, `/checkout`, and `/admin`.** All require a token;
+  only `/admin` additionally requires `role === "ADMIN"`. Admin APIs must still
+  perform their own role checks in Sprint 5.
+- **Profile counts remain unknown (`—`) rather than fake.** Real order/wishlist
+  counts will be wired when those data paths are implemented.
+
+## 2026-07-19 — Sprint 0 Foundations
+- **Extend `Product`, don't rewrite the frontend type.** DB gained `slug`, `brand`,
+  `subcategory`, `originalPrice`, `badge` (enum), `features`, `rating`, `reviewCount`,
+  `isActive`, `isFeatured`. A future mapper will convert Prisma → frontend `Product`
+  so UI components stay mostly unchanged.
+- **Payments = COD/stub for MVP.** `Order` carries `paymentMethod`/`paymentStatus`
+  enums so a real gateway (Razorpay) can slot in later. No gateway UI in MVP.
+- **Order stores a `shippingAddress` JSON snapshot** in addition to the `Address`
+  table, so historical orders stay correct if an address is later edited/deleted.
+- **Variants are unique on `(productId, size, color)`; cart items unique on
+  `(cartId, variantId)`.** Prevents duplicate variants and cart rows.
+- **`onDelete: Cascade`** on product children (images, variants), cart, wishlist,
+  and order items. Orders reference `User` with `Restrict` to preserve history.
+- **Seed is idempotent** (`upsert` by slug, replace images/variants) and imports
+  from `src/lib/data.ts`. Admin user comes from `ADMIN_EMAIL`/`ADMIN_PASSWORD` env.
+- **Admin auth via `proxy.ts`** (Next 16 renamed `middleware` → `proxy`). It now
+  requires a token AND `role === "ADMIN"`; still verify role inside each admin
+  route/server action (proxy alone is not sufficient — see Next 16 data-security docs).
+- **Runner:** added `tsx` (dev dep) + `seed` entry in `prisma.config.ts` so
+  `npx prisma db seed` executes the TypeScript seed.
+- **Legacy timestamp migration is idempotent.** The initial migration already
+  created `ProductVariant.createdAt`/`updatedAt`; the next migration now uses
+  `ADD COLUMN IF NOT EXISTS` so a fresh database can apply the full history.
+
+## Known follow-ups / debt
+- Sprint 0 is applied and verified locally: 20 products, 343 variants, 60 images,
+  an ADMIN account, a 200 products API response, and an admin-login redirect.
+- Storefront still imports mock catalog — wired in Sprint 2.

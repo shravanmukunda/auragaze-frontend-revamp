@@ -1,0 +1,34 @@
+---
+description: AURAGAZE project context, architecture, and where to find things
+alwaysApply: true
+---
+
+# AURAGAZE — Project Context
+
+Mobile-first t-shirt ecommerce platform. Single Next.js app lives in `agz/`.
+(The sibling `auragaze-frontend-revamp/` is a stale build cache — ignore it.)
+
+## Source of truth for work
+- Requirements: `docs/PRD.md`
+- Sequencing: `docs/SPRINT_PLAN.md` (implement ONE sprint at a time)
+- Decisions: see `decisions.mdc`
+
+## Stack
+- Next.js 16 (App Router, React 19, `reactCompiler: true`) — this is bleeding-edge;
+  read `node_modules/next/dist/docs/` before using unfamiliar APIs (see `AGENTS.md`).
+- Prisma 6 + PostgreSQL (Docker, host port **5433**), NextAuth 4 (JWT, Credentials).
+- Tailwind v4, framer-motion, lucide-react, sonner, next-themes.
+
+## Current state (as of Sprint 2)
+- Storefront catalog pages read DB products through `CatalogProvider` + product APIs.
+- `src/lib/data.ts` remains only for category art/labels, shipping constants, and seed input.
+- Auth is connected: register, login, logout, JWT session, protected profile/admin.
+- DB schema now covers catalog, variants, cart, orders, inventory, addresses, wishlist.
+- Seed (`prisma/seed.ts`) imports the mock catalog into the DB + creates an admin user.
+
+## Conventions
+- Storefront = mobile-first, `max-w-lg`, existing theme tokens. Prefer wiring real
+  data over redesigning pages.
+- Admin (future) = desktop-first sidebar layout; do NOT reuse the mobile floating nav.
+- Money is in INR (₹). Free shipping threshold ₹4000, shipping fee ₹99.
+- Don't scope-creep beyond the active sprint.

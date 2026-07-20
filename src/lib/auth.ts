@@ -8,9 +8,14 @@ import type { AuthOptions } from "next-auth";
 
 export const authConfig: AuthOptions = {
   adapter: PrismaAdapter(prisma),
+  secret: process.env.NEXTAUTH_SECRET,
 
   session: {
     strategy: "jwt",
+  },
+
+  pages: {
+    signIn: "/login",
   },
 
   providers: [
@@ -25,15 +30,15 @@ export const authConfig: AuthOptions = {
 
         const user = await prisma.user.findUnique({
           where: {
-            email: credentials.email as string,
+            email: String(credentials.email).trim().toLowerCase(),
           },
         });
 
         if (!user) return null;
 
         const validPassword = await bcrypt.compare(
-          credentials.password as string,
-          user.password
+          String(credentials.password),
+          user.password,
         );
 
         if (!validPassword) return null;

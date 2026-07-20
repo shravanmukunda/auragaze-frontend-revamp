@@ -17,6 +17,12 @@ export default function Footer() {
           </div>
           <div className="flex items-center gap-3">
             <Link
+              href="/about"
+              className="shrink-0 text-[10px] font-semibold label-accent uppercase tracking-widest no-select"
+            >
+              About
+            </Link>
+            <Link
               href="/refund"
               className="shrink-0 text-[10px] font-semibold label-accent uppercase tracking-widest no-select"
             >

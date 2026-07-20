@@ -2,12 +2,11 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, use } from "react";
-import Image from "next/image";
+import RemoteImage from "@/components/RemoteImage";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  Heart,
   Star,
   Share2,
   ShoppingCart,
@@ -17,10 +16,12 @@ import {
   ChevronDown,
   ChevronUp,
   Check,
+  LoaderCircle,
 } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
+import WishlistButton from "@/components/WishlistButton";
 import { useCart } from "@/context/CartContext";
-import { getProductById, getSimilarProducts } from "@/lib/data";
+import { useCatalog } from "@/context/CatalogContext";
 import { cn, formatPrice, getDiscountPercent } from "@/lib/utils";
 import { FREE_SHIPPING_THRESHOLD } from "@/lib/data";
 
@@ -32,15 +33,37 @@ export default function ProductPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
   const { addItem } = useCart();
-  const product = getProductById(id);
+  const { getProduct, getSimilarProducts, loading, error } = useCatalog();
+  const product = getProduct(id);
 
   const [selectedImage, setSelectedImage] = useState(0);
-  const [isFav, setIsFav] = useState(product?.isFavorite ?? false);
   const [selectedColor, setSelectedColor] = useState(0);
-  const [selectedSize, setSelectedSize] = useState(product?.sizes[0] ?? "M");
+  const [selectedSize, setSelectedSize] = useState("M");
   const [qty, setQty] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center gap-2 text-sm text-muted">
+        <LoaderCircle size={20} className="animate-spin" />
+        Loading product…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 text-center">
+        <p className="text-sm text-muted">{error}</p>
+        <Link href="/shop">
+          <button className="px-6 py-3 rounded-2xl text-white text-sm font-semibold btn-gradient">
+            Back to Shop
+          </button>
+        </Link>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -58,9 +81,46 @@ export default function ProductPage({ params }: PageProps) {
   }
 
   const similarProducts = getSimilarProducts(product, 6);
+  const requestedColor = product.colors[selectedColor] ?? product.colors[0];
+  const requestedVariant = product.variants.find(
+    (variant) =>
+      variant.color === requestedColor &&
+      variant.size === selectedSize &&
+      variant.stock > 0,
+  );
+  const selectedVariant =
+    requestedVariant ??
+    product.variants.find((variant) => variant.stock > 0) ??
+    product.variants[0];
+  const selectedColorValue = selectedVariant?.color ?? requestedColor;
+  const resolvedColorIndex = Math.max(
+    0,
+    product.colors.indexOf(selectedColorValue),
+  );
+  const resolvedSize = selectedVariant?.size ?? selectedSize;
+  const selectedStock = selectedVariant?.stock ?? 0;
+  const isSoldOut = selectedStock <= 0;
+
+  const handleColorSelect = (colorIndex: number) => {
+    const color = product.colors[colorIndex];
+    const currentSizeStock =
+      product.variants.find(
+        (variant) =>
+          variant.color === color && variant.size === resolvedSize,
+      )?.stock ?? 0;
+    setSelectedColor(colorIndex);
+    if (currentSizeStock <= 0) {
+      const firstAvailable = product.variants.find(
+        (variant) => variant.color === color && variant.stock > 0,
+      );
+      if (firstAvailable) setSelectedSize(firstAvailable.size);
+    }
+    setQty(1);
+  };
 
   const handleAddToCart = () => {
-    addItem(product.id, qty, selectedColor, selectedSize);
+    if (isSoldOut || !selectedVariant) return;
+    void addItem(selectedVariant.id, qty);
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 2000);
   };
@@ -83,17 +143,7 @@ export default function ProductPage({ params }: PageProps) {
           </span>
 
           <div className="flex items-center gap-2">
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setIsFav(!isFav)}
-              className="w-10 h-10 rounded-full glass flex items-center justify-center no-select"
-            >
-              <Heart
-                size={16}
-                className={isFav ? "fill-rose-500 text-rose-500" : ""}
-                style={{ color: isFav ? undefined : "var(--foreground)" }}
-              />
-            </motion.button>
+            <WishlistButton productId={product.id} />
             <motion.button
               whileTap={{ scale: 0.9 }}
               className="w-10 h-10 rounded-full glass flex items-center justify-center no-select"
@@ -116,13 +166,11 @@ export default function ProductPage({ params }: PageProps) {
               transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
               className="absolute inset-0"
             >
-              <Image
+              <RemoteImage
                 src={product.images[selectedImage]}
                 alt={product.name}
                 fill
                 className="object-cover"
-                sizes="(max-width: 768px) 100vw, 512px"
-                priority
               />
             </motion.div>
           </AnimatePresence>
@@ -158,7 +206,7 @@ export default function ProductPage({ params }: PageProps) {
                   selectedImage === i ? "border-blue-500" : "border-transparent opacity-60"
                 )}
               >
-                <Image src={img} alt={`${product.name} ${i + 1}`} fill className="object-cover" sizes="64px" />
+                <RemoteImage src={img} alt={`${product.name} ${i + 1}`} fill className="object-cover" />
               </motion.button>
             ))}
           </div>
@@ -213,43 +261,66 @@ export default function ProductPage({ params }: PageProps) {
           {/* Color Options */}
           <div className="mb-5">
             <p className="text-xs font-semibold mb-2" style={{ color: "var(--muted)" }}>
-              Color — <span style={{ color: "var(--foreground)" }}>Option {selectedColor + 1}</span>
+              Color — <span style={{ color: "var(--foreground)" }}>Option {resolvedColorIndex + 1}</span>
             </p>
             <div className="flex gap-3">
-              {product.colors.map((color, i) => (
-                <motion.button
-                  key={i}
-                  whileTap={{ scale: 0.85 }}
-                  onClick={() => setSelectedColor(i)}
-                  className={cn(
-                    "w-9 h-9 rounded-full border-2 transition-all duration-200",
-                    selectedColor === i ? "border-blue-500 scale-110" : "border-transparent"
-                  )}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
+              {product.colors.map((color, i) => {
+                const colorInStock = product.variants.some(
+                  (variant) => variant.color === color && variant.stock > 0,
+                );
+                return (
+                  <motion.button
+                    key={i}
+                    whileTap={{ scale: 0.85 }}
+                    onClick={() => handleColorSelect(i)}
+                    disabled={!colorInStock}
+                    className={cn(
+                      "w-9 h-9 rounded-full border-2 transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-30",
+                      resolvedColorIndex === i
+                        ? "border-blue-500 scale-110"
+                        : "border-transparent",
+                    )}
+                    style={{ backgroundColor: color }}
+                    aria-label={`Color option ${i + 1}${colorInStock ? "" : " — out of stock"}`}
+                  />
+                );
+              })}
             </div>
           </div>
 
           {/* Size Options */}
           <div className="mb-5">
             <p className="text-xs font-semibold mb-2" style={{ color: "var(--muted)" }}>
-              Size — <span style={{ color: "var(--foreground)" }}>{selectedSize}</span>
+              Size — <span style={{ color: "var(--foreground)" }}>{resolvedSize}</span>
             </p>
             <div className="flex flex-wrap gap-2">
-              {product.sizes.map((size) => (
-                <motion.button
-                  key={size}
-                  whileTap={{ scale: 0.92 }}
-                  onClick={() => setSelectedSize(size)}
-                  className={cn(
-                    "min-w-10 px-3 h-9 rounded-xl text-xs font-bold transition-all duration-200 no-select",
-                    selectedSize === size ? "filter-chip-active" : "filter-chip-inactive"
-                  )}
-                >
-                  {size}
-                </motion.button>
-              ))}
+              {product.sizes.map((size) => {
+                const sizeStock =
+                  product.variants.find(
+                    (variant) =>
+                      variant.color === selectedColorValue &&
+                      variant.size === size,
+                  )?.stock ?? 0;
+                return (
+                  <motion.button
+                    key={size}
+                    whileTap={{ scale: 0.92 }}
+                    onClick={() => {
+                      setSelectedSize(size);
+                      setQty(1);
+                    }}
+                    disabled={sizeStock <= 0}
+                    className={cn(
+                      "min-w-10 px-3 h-9 rounded-xl text-xs font-bold transition-all duration-200 no-select disabled:cursor-not-allowed disabled:line-through disabled:opacity-35",
+                      resolvedSize === size
+                        ? "filter-chip-active"
+                        : "filter-chip-inactive",
+                    )}
+                  >
+                    {size}
+                  </motion.button>
+                );
+              })}
             </div>
           </div>
 
@@ -270,7 +341,8 @@ export default function ProductPage({ params }: PageProps) {
               </span>
               <motion.button
                 whileTap={{ scale: 0.85 }}
-                onClick={() => setQty(Math.min(product.stock, qty + 1))}
+                onClick={() => setQty(Math.min(selectedStock, qty + 1))}
+                disabled={isSoldOut || qty >= selectedStock}
                 className="w-8 h-8 rounded-full flex items-center justify-center no-select"
                 style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
               >
@@ -280,10 +352,18 @@ export default function ProductPage({ params }: PageProps) {
             <span
               className={cn(
                 "text-xs font-semibold px-2.5 py-1 rounded-full",
-                product.stock <= 5 ? "text-orange-600 bg-orange-100 dark:bg-orange-950" : "text-emerald-600 bg-emerald-100 dark:bg-emerald-950"
+                selectedStock === 0
+                  ? "text-rose-600 bg-rose-100 dark:bg-rose-950"
+                  : selectedStock <= 5
+                    ? "text-orange-600 bg-orange-100 dark:bg-orange-950"
+                    : "text-emerald-600 bg-emerald-100 dark:bg-emerald-950"
               )}
             >
-              {product.stock <= 5 ? `Only ${product.stock} left!` : "In Stock"}
+              {selectedStock === 0
+                ? "Out of stock"
+                : selectedStock <= 5
+                  ? `Only ${selectedStock} left!`
+                  : `${selectedStock} in stock`}
             </span>
           </div>
 
@@ -388,23 +468,18 @@ export default function ProductPage({ params }: PageProps) {
         className="fixed bottom-[5.75rem] left-0 right-0 z-[45] px-4"
       >
         <div className="max-w-lg mx-auto flex gap-3">
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            className="flex-none w-14 h-14 rounded-2xl flex items-center justify-center no-select"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-          >
-            <Heart
-              size={20}
-              className={isFav ? "fill-rose-500 text-rose-500" : ""}
-              style={{ color: isFav ? undefined : "var(--foreground)" }}
-              onClick={() => setIsFav(!isFav)}
-            />
-          </motion.button>
+          <WishlistButton
+            productId={product.id}
+            variant="plain"
+            iconSize={20}
+            className="flex-none h-14 w-14 rounded-2xl border border-[var(--border)] bg-[var(--surface)]"
+          />
 
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={handleAddToCart}
-            className="flex-1 h-14 rounded-2xl flex items-center justify-center gap-2.5 text-white font-bold no-select overflow-hidden relative btn-gradient"
+            disabled={isSoldOut}
+            className="flex-1 h-14 rounded-2xl flex items-center justify-center gap-2.5 text-white font-bold no-select overflow-hidden relative btn-gradient disabled:cursor-not-allowed disabled:opacity-50"
             style={{
               background: addedToCart
                 ? "linear-gradient(135deg, #10b981, #059669)"
@@ -436,7 +511,9 @@ export default function ProductPage({ params }: PageProps) {
                   className="flex items-center gap-2"
                 >
                   <ShoppingCart size={18} />
-                  Add to Cart · {formatPrice(product.price * qty)}
+                  {isSoldOut
+                    ? "Selected variant unavailable"
+                    : `Add to Cart · ${formatPrice(product.price * qty)}`}
                 </motion.div>
               )}
             </AnimatePresence>

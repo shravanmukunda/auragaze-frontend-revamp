@@ -3,26 +3,34 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, TrendingUp } from "lucide-react";
+import { ArrowRight, RotateCcw, TrendingUp } from "lucide-react";
 import TopBar from "@/components/TopBar";
 import CategoryCarousel from "@/components/CategoryCarousel";
 import ProductCard from "@/components/ProductCard";
 import HeroPreload from "@/components/HeroPreload";
 import ScrollHero from "@/components/ScrollHero";
-import { products, getFeaturedProducts } from "@/lib/data";
+import { useCatalog } from "@/context/CatalogContext";
 
 const HERO_POSTER_SRC = "/hero-poster.jpg";
-const featured = getFeaturedProducts(4);
-const newArrivals = products.filter((p) => p.badge === "new").slice(0, 4);
 
 export default function HomePage() {
+  const { products, loading, error, refresh } = useCatalog();
+  const featured = products
+    .filter((product) => product.isFeatured)
+    .slice(0, 4);
+  const featuredProducts =
+    featured.length > 0 ? featured : products.slice(0, 4);
+  const newArrivals = products
+    .filter((product) => product.badge === "new")
+    .slice(0, 4);
+
   return (
     <div className="min-h-screen pb-6">
       <HeroPreload />
       <TopBar />
 
       <ScrollHero posterSrc={HERO_POSTER_SRC}>
-        <div className="absolute inset-0 z-[2] flex flex-col items-center justify-end pb-20 px-5 max-w-lg mx-auto w-full">
+        <div className="absolute inset-0 z-2 flex flex-col items-center justify-end pb-20 px-5 max-w-lg mx-auto w-full">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -71,11 +79,36 @@ export default function HomePage() {
           </Link>
         </motion.div>
 
-        <div className="grid grid-cols-2 gap-3">
-          {featured.map((product, i) => (
-            <ProductCard key={product.id} product={product} index={i} />
-          ))}
-        </div>
+        {error ? (
+          <div
+            className="rounded-3xl px-6 py-10 text-center"
+            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+          >
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              {error}
+            </p>
+            <button
+              onClick={() => void refresh()}
+              className="filter-chip filter-chip-active mt-4 inline-flex items-center gap-2"
+            >
+              <RotateCcw size={14} />
+              Try again
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {loading &&
+              Array.from({ length: 4 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="aspect-3/4 animate-pulse rounded-xl bg-(--surface)"
+                />
+              ))}
+            {featuredProducts.map((product, i) => (
+              <ProductCard key={product.id} product={product} index={i} />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* New Arrivals Banner */}
@@ -117,6 +150,7 @@ export default function HomePage() {
       )}
 
       {/* Brand Story Banner */}
+      {products[0] && (
       <section className="px-4 pt-10 max-w-lg mx-auto">
         <motion.div
           initial={{ opacity: 0, scale: 0.96 }}
@@ -132,7 +166,7 @@ export default function HomePage() {
             className="object-cover"
             sizes="(max-width: 768px) 100vw, 512px"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-950/80 to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-r from-blue-950/80 to-transparent" />
           <div className="absolute inset-0 p-6 flex flex-col justify-center">
             <p className="text-blue-300 text-xs font-semibold uppercase tracking-widest mb-2">Our Story</p>
             <h3 className="text-white font-black text-2xl leading-tight mb-3">
@@ -153,6 +187,7 @@ export default function HomePage() {
           </div>
         </motion.div>
       </section>
+      )}
     </div>
   );
 }

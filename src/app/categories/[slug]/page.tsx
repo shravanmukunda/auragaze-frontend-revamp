@@ -3,9 +3,10 @@
 import { motion } from "framer-motion";
 import { use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, LoaderCircle, RotateCcw } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
-import { categories, getProductsByCategory } from "@/lib/data";
+import { categories } from "@/lib/data";
+import { useCatalog } from "@/context/CatalogContext";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -14,8 +15,13 @@ interface PageProps {
 export default function CategoryDetailPage({ params }: PageProps) {
   const { slug } = use(params);
   const router = useRouter();
+  const { products, loading, error, refresh } = useCatalog();
   const category = categories.find((c) => c.slug === slug);
-  const categoryProducts = getProductsByCategory(slug);
+  const categoryProducts = products.filter((product) =>
+    slug === "new-arrivals"
+      ? product.badge === "new"
+      : product.category === slug || product.subcategory === slug,
+  );
 
   return (
     <div className="min-h-screen pb-6">
@@ -46,7 +52,23 @@ export default function CategoryDetailPage({ params }: PageProps) {
           </p>
         </motion.div>
 
-        {categoryProducts.length > 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted">
+            <LoaderCircle size={18} className="animate-spin" />
+            Loading products…
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
+            <p className="text-sm text-muted">{error}</p>
+            <button
+              onClick={() => void refresh()}
+              className="filter-chip filter-chip-active inline-flex items-center gap-2"
+            >
+              <RotateCcw size={14} />
+              Try again
+            </button>
+          </div>
+        ) : categoryProducts.length > 0 ? (
           <div className="grid grid-cols-2 gap-3">
             {categoryProducts.map((product, i) => (
               <ProductCard key={product.id} product={product} index={i} />
