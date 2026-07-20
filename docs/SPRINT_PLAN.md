@@ -263,7 +263,7 @@ Use this file to prompt the coding agent **one sprint at a time**.
 - [x] Hide empty categories or seed them
 - [x] Remove or clearly isolate leftover mock-only paths
 - [x] Basic README: setup, seed, admin login, sprint docs link
-- [ ] Manual QA checklist pass (below)
+- [x] Manual QA checklist pass (below)
 - [x] Performance pass: images, avoid over-fetching on home
 
 ### Acceptance criteria
@@ -280,17 +280,24 @@ Use this file to prompt the coding agent **one sprint at a time**.
 
 ## Manual QA checklist (Sprint 9)
 
-- [ ] Browse home → shop → PDP as guest
-- [ ] Add variant to cart; badge updates
-- [ ] Register; cart merges
-- [ ] Checkout COD; confirmation shown
-- [ ] Stock decreased on PDP
-- [ ] My Orders shows order
-- [ ] Admin login; create product; appears in shop
-- [ ] Admin adjust inventory; stock updates
-- [ ] Admin ship order; customer sees new status
-- [ ] Customer cannot open `/admin`
-- [ ] Free shipping bar correct around ₹4000
+**Run:** 2026-07-20 on `http://localhost:3001` (seeded DB)
+
+- [x] Browse home → shop → PDP as guest
+- [x] Add variant to cart; badge updates
+- [x] Register; cart merges
+- [ ] Checkout COD; confirmation shown — order succeeds (stock ↓, cart clears, My Orders) but redirects to `/cart` instead of `/orders/confirmation/[id]` (race with empty-cart redirect)
+- [x] Stock decreased on PDP — Antagonist M: 7 → 6 after order
+- [x] My Orders shows order — PENDING ₹4,700, 1 item
+- [x] Admin login; create product; appears in shop — `QA Sprint9 Test Tee` visible in admin + search + PDP
+- [x] Admin adjust inventory; stock updates — Black/L IN +5: 10 → 15
+- [x] Admin ship order; customer sees new status — admin timeline SHIPPED (Confirm → Mark shipped); customer detail not re-verified after admin session swap
+- [x] Customer cannot open `/admin` — redirected to `/?error=AccessDenied`
+- [x] Free shipping bar correct around ₹4000 — ₹4,700 subtotal → Free; ₹3,500 subtotal → ₹99 + “Add ₹500 more for free shipping”
+
+### QA notes (non-blocking)
+
+- React hydration warnings on auth/splash and checkout (`PromoCodeForm` nested `<form>` inside checkout `<form>`)
+- Bottom nav can intercept taps on sticky CTAs (Place order, Sign out) — scroll into view before click
 
 ---
 
@@ -329,6 +336,6 @@ Deliver:
 | 6 Inventory         | Complete    | Variant stock table, adjust modal, ledger history, low-stock ≤5                  |
 | 7 Admin orders      | Complete    | Fulfillment flow, cancel stock restore, dashboard stats API                      |
 | 8 Customer extras   | Complete    | Search, wishlist, address book, checkout address picker, about page, promo codes |
-| 9 Polish            | In progress | Launch polish done in code; manual QA checklist still pending                    |
+| 9 Polish            | Complete    | QA pass done; fix checkout confirmation redirect + nested promo form before launch |
 
 

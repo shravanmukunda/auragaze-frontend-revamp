@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { KeyboardEvent, useEffect, useState } from "react";
 import { LoaderCircle, Tag, X } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -14,12 +14,14 @@ interface PromoCodeFormProps {
   subtotal: number;
   onApplied?: (promo: PromoValidation | null) => void;
   compact?: boolean;
+  withinForm?: boolean;
 }
 
 export default function PromoCodeForm({
   subtotal,
   onApplied,
   compact = false,
+  withinForm = false,
 }: PromoCodeFormProps) {
   const [input, setInput] = useState("");
   const [applied, setApplied] = useState<PromoValidation | null>(null);
@@ -66,8 +68,7 @@ export default function PromoCodeForm({
     };
   }, [onApplied, subtotal]);
 
-  async function handleApply(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleApply() {
     const code = input.trim();
     if (!code) return;
 
@@ -110,6 +111,12 @@ export default function PromoCodeForm({
     toast.success("Promo code removed.");
   }
 
+  function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (!withinForm || event.key !== "Enter") return;
+    event.preventDefault();
+    void handleApply();
+  }
+
   if (applied) {
     return (
       <div
@@ -147,17 +154,19 @@ export default function PromoCodeForm({
     );
   }
 
-  return (
-    <form onSubmit={handleApply} className="space-y-2">
+  const content = (
+    <div className="space-y-2">
       <div className="flex gap-2">
         <input
           value={input}
           onChange={(event) => setInput(event.target.value.toUpperCase())}
+          onKeyDown={handleInputKeyDown}
           placeholder="Promo code"
           className="w-full rounded-xl border border-(--border) bg-background py-3 px-4 text-sm uppercase outline-none transition focus:border-blue-500"
         />
         <button
-          type="submit"
+          type={withinForm ? "button" : "submit"}
+          onClick={withinForm ? () => void handleApply() : undefined}
           disabled={submitting || !input.trim() || subtotal <= 0}
           className="shrink-0 rounded-xl border border-(--border) px-4 text-sm font-semibold disabled:opacity-50"
         >
@@ -168,6 +177,15 @@ export default function PromoCodeForm({
       {!compact ? (
         <p className="text-[11px] text-muted">Try code AURA20 for 20% off.</p>
       ) : null}
-    </form>
+    </div>
   );
+
+  if (withinForm) {
+    return content;
+  }
+
+  return <form onSubmit={(event) => {
+    event.preventDefault();
+    void handleApply();
+  }} className="space-y-2">{content}</form>;
 }

@@ -24,6 +24,7 @@ export default function CheckoutPage() {
   const { status, data: session } = useSession();
   const { items, subtotal, hydrated, clearCart } = useCart();
   const [submitting, setSubmitting] = useState(false);
+  const [checkoutComplete, setCheckoutComplete] = useState(false);
   const [error, setError] = useState("");
   const [saveAddress, setSaveAddress] = useState(true);
   const [promoDiscount, setPromoDiscount] = useState(0);
@@ -104,10 +105,11 @@ export default function CheckoutPage() {
   );
 
   useEffect(() => {
+    if (checkoutComplete) return;
     if (hydrated && !hasItems && status === "authenticated") {
       router.replace("/cart");
     }
-  }, [hasItems, hydrated, router, status]);
+  }, [checkoutComplete, hasItems, hydrated, router, status]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -133,10 +135,11 @@ export default function CheckoutPage() {
         return;
       }
 
+      setCheckoutComplete(true);
       setStoredPromoCode(null);
-      await clearCart({ silent: true });
       toast.success("Order placed successfully.");
       router.replace(`/orders/confirmation/${data.orderId}`);
+      void clearCart({ silent: true });
     } catch {
       const message = "Unable to place order. Try again.";
       setError(message);
@@ -371,6 +374,7 @@ export default function CheckoutPage() {
               <PromoCodeForm
                 subtotal={subtotal}
                 compact
+                withinForm
                 onApplied={(promo) => {
                   setPromoDiscount(promo?.discount ?? 0);
                   setPromoCode(promo?.code ?? null);
