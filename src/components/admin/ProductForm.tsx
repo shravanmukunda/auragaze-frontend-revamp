@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LoaderCircle, Plus, Trash2 } from "lucide-react";
+import { ImagePlus, LoaderCircle, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   ADMIN_BADGES,
@@ -13,6 +13,7 @@ import {
   type AdminProductInput,
   type AdminProductVariantInput,
 } from "@/types/admin-product";
+import { optimizeCloudinaryUrl } from "@/lib/cloudinary-url";
 import { cn, formatPrice } from "@/lib/utils";
 
 interface ProductFormProps {
@@ -41,7 +42,9 @@ function buildDefaultVariants(colors: string[], sizes: string[]) {
 
 export default function ProductForm({ mode, initialProduct }: ProductFormProps) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [name, setName] = useState(initialProduct?.name ?? "");
   const [brand, setBrand] = useState(initialProduct?.brand ?? "AURAGAZE");
   const [description, setDescription] = useState(
@@ -115,6 +118,53 @@ export default function ProductForm({ mode, initialProduct }: ProductFormProps) 
     }
     setVariants(buildDefaultVariants(colors, sizes));
     toast.success(`Generated ${colors.length * sizes.length} variants.`);
+  }
+
+  async function uploadFiles(files: FileList | File[]) {
+    const list = Array.from(files);
+    if (list.length === 0) return;
+
+    setUploading(true);
+    let uploadedCount = 0;
+
+    try {
+      for (const file of list) {
+        const body = new FormData();
+        body.append("file", file);
+
+        const response = await fetch("/api/admin/upload", {
+          method: "POST",
+          body,
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          toast.error(data.error ?? `Failed to upload ${file.name}`);
+          continue;
+        }
+
+        setImages((current) => {
+          const withoutEmpty = current.filter((value) => value.trim());
+          return [...withoutEmpty, data.url as string];
+        });
+        uploadedCount += 1;
+      }
+
+      if (uploadedCount > 0) {
+        toast.success(
+          uploadedCount === 1
+            ? "Image uploaded."
+            : `${uploadedCount} images uploaded.`,
+        );
+      }
+    } catch {
+      toast.error("Unable to upload images.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
   }
 
   function buildPayload(): AdminProductInput {
@@ -310,20 +360,64 @@ export default function ProductForm({ mode, initialProduct }: ProductFormProps) 
       </section>
 
       <section className="surface-card rounded-2xl p-6">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="font-heading text-lg font-bold">Images</h2>
-          <button
-            type="button"
-            onClick={() => setImages((current) => [...current, ""])}
-            className="admin-button-secondary"
-          >
-            <Plus size={16} />
-            Add image URL
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-heading text-lg font-bold">Images</h2>
+            <p className="text-sm text-[var(--muted)]">
+              Upload to Cloudinary or paste a URL
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              multiple
+              className="hidden"
+              onChange={(event) => {
+                if (event.target.files) {
+                  void uploadFiles(event.target.files);
+                }
+              }}
+            />
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+              className="admin-button-secondary"
+            >
+              {uploading ? (
+                <LoaderCircle size={16} className="animate-spin" />
+              ) : (
+                <ImagePlus size={16} />
+              )}
+              {uploading ? "Uploading…" : "Upload images"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setImages((current) => [...current, ""])}
+              className="admin-button-secondary"
+            >
+              <Plus size={16} />
+              Add image URL
+            </button>
+          </div>
         </div>
         <div className="mt-4 space-y-3">
           {images.map((image, index) => (
-            <div key={`image-${index}`} className="flex gap-2">
+            <div key={`image-${index}`} className="flex items-start gap-2">
+              {image.trim() ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={optimizeCloudinaryUrl(image, { width: 96 })}
+                  alt=""
+                  className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                />
+              ) : (
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface-hover)] text-[var(--muted)]">
+                  <ImagePlus size={16} />
+                </div>
+              )}
               <input
                 value={image}
                 onChange={(event) =>

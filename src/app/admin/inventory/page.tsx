@@ -160,6 +160,7 @@ export default function AdminInventoryPage() {
                               src={row.imageUrl}
                               alt={row.productName}
                               fill
+                              width={96}
                               className="object-cover"
                             />
                           ) : null}

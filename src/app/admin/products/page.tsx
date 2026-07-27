@@ -169,6 +169,7 @@ export default function AdminProductsPage() {
                                 src={image}
                                 alt={product.name}
                                 fill
+                                width={96}
                                 className="object-cover"
                               />
                             ) : null}

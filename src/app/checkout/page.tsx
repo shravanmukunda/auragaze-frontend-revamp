@@ -352,6 +352,7 @@ export default function CheckoutPage() {
                         src={item.image}
                         alt={item.productName}
                         fill
+                        width={160}
                         className="object-cover"
                       />
                     </div>

@@ -170,6 +170,7 @@ export default function ProductPage({ params }: PageProps) {
                 src={product.images[selectedImage]}
                 alt={product.name}
                 fill
+                width={1200}
                 className="object-cover"
               />
             </motion.div>
@@ -206,7 +207,7 @@ export default function ProductPage({ params }: PageProps) {
                   selectedImage === i ? "border-blue-500" : "border-transparent opacity-60"
                 )}
               >
-                <RemoteImage src={img} alt={`${product.name} ${i + 1}`} fill className="object-cover" />
+                <RemoteImage src={img} alt={`${product.name} ${i + 1}`} fill width={160} className="object-cover" />
               </motion.button>
             ))}
           </div>

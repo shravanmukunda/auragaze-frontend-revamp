@@ -27,6 +27,7 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
             src={product.image}
             alt={product.name}
             fill
+            width={600}
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
           <div className="absolute right-2 top-2">
