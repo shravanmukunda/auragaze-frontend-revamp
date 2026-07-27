@@ -37,6 +37,7 @@ enum ProductBadge {
 enum PaymentMethod {
   COD
   ONLINE_STUB
+  RAZORPAY
 }
 
 enum PaymentStatus {
@@ -188,9 +189,11 @@ model Order {
   promoCode       String?
   total           Decimal
   status          OrderStatus   @default(PENDING)
-  paymentMethod   PaymentMethod @default(COD)
-  paymentStatus   PaymentStatus @default(PENDING)
-  shippingAddress Json
+  paymentMethod     PaymentMethod @default(COD)
+  paymentStatus     PaymentStatus @default(PENDING)
+  razorpayOrderId   String?       @unique
+  razorpayPaymentId String?       @unique
+  shippingAddress   Json
   userId          String
   user            User          @relation(fields: [userId], references: [id], onDelete: Restrict)
   items           OrderItem[]

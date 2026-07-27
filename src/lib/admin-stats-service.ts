@@ -18,7 +18,10 @@ export async function getAdminStats(): Promise<AdminStats> {
       prisma.order.aggregate({
         where: {
           status: { not: OrderStatus.CANCELLED },
-          paymentMethod: "COD",
+          OR: [
+            { paymentMethod: "COD" },
+            { paymentMethod: "RAZORPAY", paymentStatus: "PAID" },
+          ],
         },
         _sum: { total: true },
       }),

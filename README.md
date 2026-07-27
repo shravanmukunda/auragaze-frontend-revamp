@@ -6,7 +6,7 @@ and NextAuth. Product requirements and implementation sequencing live in
 
 ## What is included
 
-- Storefront: live catalog, category/shop/PDP flows, guest + account cart, COD checkout
+- Storefront: live catalog, category/shop/PDP flows, guest + account cart, COD + Razorpay checkout
 - Customer account: email/password + Google Sign-In, email verification, password reset, orders, wishlist, addresses, promo codes
 - Admin: dashboard, products, inventory adjustments, order fulfillment
 - Seed data: full starter catalog, admin account, and promo code `AURA20`
@@ -47,6 +47,7 @@ Copy `.env.example` and set:
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — Google OAuth (optional until you enable Google Sign-In)
 - `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` — required for register verification and password reset
 - `CLOUDINARY_*` — image uploads in admin
+- `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` — online payments (UPI/cards via Razorpay Checkout)
 
 Never use the example admin password outside local development.
 

@@ -26,9 +26,9 @@ export default async function AdminOverviewPage() {
 
   const statCards = [
     {
-      label: "COD revenue",
+      label: "Revenue",
       value: formatPrice(stats.revenue),
-      hint: "Non-cancelled COD orders",
+      hint: "COD + paid online orders",
       icon: IndianRupee,
     },
     {

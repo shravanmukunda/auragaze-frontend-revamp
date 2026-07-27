@@ -22,7 +22,7 @@ export interface OrderLine {
 export interface OrderSummary {
   id: string;
   status: "pending" | "confirmed" | "shipped" | "delivered" | "cancelled";
-  paymentMethod: "cod" | "online_stub";
+  paymentMethod: "cod" | "online_stub" | "razorpay";
   paymentStatus: "pending" | "paid" | "failed" | "refunded";
   subtotal: number;
   shippingFee: number;

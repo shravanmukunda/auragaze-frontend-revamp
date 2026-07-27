@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { FREE_SHIPPING_THRESHOLD, SHIPPING_FEE } from "@/lib/data";
 import { mapOrderDetail, mapOrderSummary } from "@/lib/order-mapper";
-import { reservePromoCode } from "@/lib/promo-service";
+import { reservePromoCode, validatePromoCode } from "@/lib/promo-service";
 import type { CheckoutResult, ShippingAddress } from "@/types/order";
 
 export class CheckoutError extends Error {
@@ -13,6 +13,23 @@ export class CheckoutError extends Error {
     this.name = "CheckoutError";
     this.status = status;
   }
+}
+
+export interface PlaceOrderOptions {
+  saveAddress?: boolean;
+  promoCode?: string;
+  paymentMethod?: "COD" | "RAZORPAY";
+  paymentStatus?: "PENDING" | "PAID";
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+}
+
+export interface CheckoutTotals {
+  subtotal: number;
+  shippingFee: number;
+  discount: number;
+  promoCode?: string;
+  total: number;
 }
 
 function validateShippingAddress(address: ShippingAddress): ShippingAddress {
@@ -54,12 +71,120 @@ function validateShippingAddress(address: ShippingAddress): ShippingAddress {
   };
 }
 
+type CartWithItems = Prisma.CartGetPayload<{
+  include: {
+    items: {
+      include: {
+        variant: {
+          include: {
+            product: true;
+          };
+        };
+      };
+    };
+  };
+}>;
+
+function validateCartItems(cart: CartWithItems | null) {
+  if (!cart || cart.items.length === 0) {
+    throw new CheckoutError("Your cart is empty", 400);
+  }
+
+  for (const item of cart.items) {
+    const product = item.variant.product;
+    if (!product.isActive) {
+      throw new CheckoutError(`${product.name} is no longer available`, 409);
+    }
+    if (item.variant.stock < item.quantity) {
+      throw new CheckoutError(
+        `Only ${item.variant.stock} left for ${product.name} (${item.variant.size})`,
+        409,
+      );
+    }
+  }
+}
+
+async function computeTotals(
+  cart: CartWithItems,
+  promoCodeInput?: string,
+  tx?: Prisma.TransactionClient,
+): Promise<CheckoutTotals> {
+  const subtotal = cart.items.reduce(
+    (sum, item) => sum + Number(item.variant.product.price) * item.quantity,
+    0,
+  );
+  const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+
+  let discount = 0;
+  let promoCode: string | undefined;
+  if (promoCodeInput?.trim()) {
+    const promo = tx
+      ? await reservePromoCode(promoCodeInput, subtotal, tx)
+      : await validatePromoCode(promoCodeInput, subtotal);
+    discount = promo.discount;
+    promoCode = promo.code;
+  }
+
+  const total = subtotal + shippingFee - discount;
+
+  return {
+    subtotal,
+    shippingFee,
+    discount,
+    promoCode,
+    total,
+  };
+}
+
+export async function getCheckoutTotals(
+  userId: string,
+  promoCode?: string,
+): Promise<CheckoutTotals> {
+  const cart = await prisma.cart.findUnique({
+    where: { userId },
+    include: {
+      items: {
+        include: {
+          variant: {
+            include: {
+              product: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  validateCartItems(cart);
+  return computeTotals(cart!, promoCode);
+}
+
 export async function placeOrder(
   userId: string,
   rawAddress: ShippingAddress,
-  options?: { saveAddress?: boolean; promoCode?: string },
+  options?: PlaceOrderOptions,
 ): Promise<CheckoutResult> {
   const shippingAddress = validateShippingAddress(rawAddress);
+  const paymentMethod = options?.paymentMethod ?? "COD";
+  const paymentStatus =
+    options?.paymentStatus ?? (paymentMethod === "RAZORPAY" ? "PAID" : "PENDING");
+
+  if (paymentMethod === "RAZORPAY") {
+    if (!options?.razorpayOrderId || !options?.razorpayPaymentId) {
+      throw new CheckoutError("Razorpay payment details are required", 400);
+    }
+
+    const existingPayment = await prisma.order.findUnique({
+      where: { razorpayPaymentId: options.razorpayPaymentId },
+      select: { id: true, total: true },
+    });
+    if (existingPayment) {
+      return {
+        orderId: existingPayment.id,
+        total: Number(existingPayment.total),
+      };
+    }
+  }
 
   const order = await prisma.$transaction(async (tx) => {
     const cart = await tx.cart.findUnique({
@@ -77,54 +202,26 @@ export async function placeOrder(
       },
     });
 
-    if (!cart || cart.items.length === 0) {
-      throw new CheckoutError("Your cart is empty", 400);
-    }
+    validateCartItems(cart);
 
-    for (const item of cart.items) {
-      const product = item.variant.product;
-      if (!product.isActive) {
-        throw new CheckoutError(`${product.name} is no longer available`, 409);
-      }
-      if (item.variant.stock < item.quantity) {
-        throw new CheckoutError(
-          `Only ${item.variant.stock} left for ${product.name} (${item.variant.size})`,
-          409,
-        );
-      }
-    }
-
-    const subtotal = cart.items.reduce(
-      (sum, item) => sum + Number(item.variant.product.price) * item.quantity,
-      0,
-    );
-    const shippingFee =
-      subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
-
-    let discount = 0;
-    let promoCode: string | undefined;
-    if (options?.promoCode?.trim()) {
-      const promo = await reservePromoCode(options.promoCode, subtotal, tx);
-      discount = promo.discount;
-      promoCode = promo.code;
-    }
-
-    const total = subtotal + shippingFee - discount;
+    const totals = await computeTotals(cart!, options?.promoCode, tx);
 
     const createdOrder = await tx.order.create({
       data: {
         userId,
-        subtotal,
-        shippingFee,
-        discount,
-        promoCode,
-        total,
-        paymentMethod: "COD",
-        paymentStatus: "PENDING",
+        subtotal: totals.subtotal,
+        shippingFee: totals.shippingFee,
+        discount: totals.discount,
+        promoCode: totals.promoCode,
+        total: totals.total,
+        paymentMethod,
+        paymentStatus,
+        razorpayOrderId: options?.razorpayOrderId,
+        razorpayPaymentId: options?.razorpayPaymentId,
         status: "PENDING",
         shippingAddress: shippingAddress as unknown as Prisma.InputJsonValue,
         items: {
-          create: cart.items.map((item) => ({
+          create: cart!.items.map((item) => ({
             productName: item.variant.product.name,
             size: item.variant.size,
             color: item.variant.color,
@@ -136,7 +233,7 @@ export async function placeOrder(
       include: { items: true },
     });
 
-    for (const item of cart.items) {
+    for (const item of cart!.items) {
       const updated = await tx.productVariant.updateMany({
         where: {
           id: item.variantId,
@@ -164,7 +261,7 @@ export async function placeOrder(
       });
     }
 
-    await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+    await tx.cartItem.deleteMany({ where: { cartId: cart!.id } });
 
     if (options?.saveAddress) {
       const existingDefault = await tx.address.findFirst({
