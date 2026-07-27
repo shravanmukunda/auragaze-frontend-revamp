@@ -49,12 +49,14 @@ async function seedAdmin() {
       name: "AURAGAZE Admin",
       password,
       role: Role.ADMIN,
+      emailVerified: new Date(),
     },
     create: {
       name: "AURAGAZE Admin",
       email: ADMIN_EMAIL,
       password,
       role: Role.ADMIN,
+      emailVerified: new Date(),
     },
   });
 }

@@ -328,7 +328,7 @@ Deliver:
 | Sprint              | Status      | Notes                                                                            |
 | ------------------- | ----------- | -------------------------------------------------------------------------------- |
 | 0 Foundations       | Complete    | 20 products, 343 variants, admin account and API verified                        |
-| 1 Auth              | Complete    | Register, sign in, JWT session, protected profile, and sign out verified         |
+| 1 Auth              | Complete    | Credentials + Google (env), email verify, password reset, hardened JWT           |
 | 2 Catalog API       | Complete    | 20 DB products mapped with live variants, filtering, sorting, and catalog states |
 | 3 Cart sync         | Complete    | Variant-aware cart, DB sync for auth users, guest merge on login                 |
 | 4 Checkout & orders | Complete    | COD checkout, stock decrement, inventory OUT, My Orders                          |

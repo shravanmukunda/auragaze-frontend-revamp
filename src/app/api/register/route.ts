@@ -2,11 +2,26 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
+import { createAuthToken } from "@/lib/auth-tokens";
+import { appOrigin, sendMail } from "@/lib/mail";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(req: Request) {
   try {
+    const ip = clientIp(req);
+    const limited = rateLimit(`register:${ip}`, 5, 15 * 60 * 1000);
+    if (!limited.ok) {
+      return NextResponse.json(
+        { error: "Too many attempts. Try again later." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(limited.retryAfterSec) },
+        },
+      );
+    }
+
     const body: unknown = await req.json();
     if (!body || typeof body !== "object") {
       return NextResponse.json(
@@ -46,22 +61,47 @@ export async function POST(req: Request) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    const user = await prisma.user.create({
+    await prisma.user.create({
       data: {
         name: normalizedName,
         email: normalizedEmail,
         password: hashedPassword,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
+        emailVerified: null,
       },
     });
 
-    return NextResponse.json({ user }, { status: 201 });
+    const token = await createAuthToken("verify", normalizedEmail);
+    const verifyUrl = `${appOrigin()}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+
+    try {
+      await sendMail({
+        to: normalizedEmail,
+        subject: "Verify your AURAGAZE account",
+        html: `
+          <p>Hi ${normalizedName},</p>
+          <p>Confirm your email to finish creating your AURAGAZE account.</p>
+          <p><a href="${verifyUrl}">Verify email</a></p>
+          <p>This link expires in one hour. If you did not sign up, you can ignore this message.</p>
+        `,
+      });
+    } catch (mailError) {
+      console.error("Verification email failed", mailError);
+      await prisma.user
+        .delete({ where: { email: normalizedEmail } })
+        .catch(() => {});
+      return NextResponse.json(
+        {
+          error:
+            "Account created but we could not send a verification email. Check SMTP settings and try again.",
+        },
+        { status: 503 },
+      );
+    }
+
+    return NextResponse.json(
+      { ok: true, needsVerification: true },
+      { status: 201 },
+    );
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
