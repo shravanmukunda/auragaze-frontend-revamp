@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, use } from "react";
+import { useState, use, useEffect } from "react";
 import RemoteImage from "@/components/RemoteImage";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -17,6 +17,9 @@ import {
   ChevronUp,
   Check,
   LoaderCircle,
+  X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import WishlistButton from "@/components/WishlistButton";
@@ -42,6 +45,40 @@ export default function ProductPage({ params }: PageProps) {
   const [qty, setQty] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  const imageCount = product?.images.length ?? 0;
+
+  useEffect(() => {
+    if (!lightboxOpen || imageCount === 0) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setLightboxOpen(false);
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        setSelectedImage((current) =>
+          current === 0 ? imageCount - 1 : current - 1,
+        );
+        return;
+      }
+      if (event.key === "ArrowRight") {
+        setSelectedImage((current) =>
+          current === imageCount - 1 ? 0 : current + 1,
+        );
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [lightboxOpen, imageCount]);
 
   if (loading) {
     return (
@@ -156,7 +193,12 @@ export default function ProductPage({ params }: PageProps) {
 
       <div className="max-w-lg mx-auto">
         {/* Hero Image */}
-        <div className="relative h-80 pt-14">
+        <button
+          type="button"
+          onClick={() => setLightboxOpen(true)}
+          className="relative h-80 w-full pt-14 text-left"
+          aria-label="View full product image"
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key={selectedImage}
@@ -175,7 +217,7 @@ export default function ProductPage({ params }: PageProps) {
               />
             </motion.div>
           </AnimatePresence>
-          <div className="absolute inset-0 bg-gradient-to-t from-[var(--background)] via-transparent to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[var(--background)] via-transparent to-transparent" />
 
           {/* Badge */}
           {product.badge && (
@@ -192,7 +234,7 @@ export default function ProductPage({ params }: PageProps) {
               </span>
             </div>
           )}
-        </div>
+        </button>
 
         {/* Thumbnail Strip */}
         {product.images.length > 1 && (
@@ -521,6 +563,92 @@ export default function ProductPage({ params }: PageProps) {
           </motion.button>
         </div>
       </div>
+
+      {/* Full-image lightbox */}
+      <AnimatePresence>
+        {lightboxOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[80] flex flex-col bg-black/95"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Product image viewer"
+          >
+            <div className="flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-2">
+              <p className="truncate text-sm font-medium text-white/80">
+                {selectedImage + 1} / {product.images.length}
+              </p>
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setLightboxOpen(false)}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white"
+                aria-label="Close image viewer"
+              >
+                <X size={20} />
+              </motion.button>
+            </div>
+
+            <div
+              className="relative flex min-h-0 flex-1 items-center justify-center px-2 pb-[max(1rem,env(safe-area-inset-bottom))]"
+              onClick={() => setLightboxOpen(false)}
+            >
+              {product.images.length > 1 && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setSelectedImage((current) =>
+                      current === 0 ? product.images.length - 1 : current - 1,
+                    );
+                  }}
+                  className="absolute left-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft size={22} />
+                </button>
+              )}
+
+              <motion.div
+                key={selectedImage}
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.2 }}
+                className="relative h-full w-full max-w-3xl"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <RemoteImage
+                  src={product.images[selectedImage]}
+                  alt={`${product.name} full view`}
+                  fill
+                  width={1600}
+                  className="object-contain"
+                />
+              </motion.div>
+
+              {product.images.length > 1 && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setSelectedImage((current) =>
+                      current === product.images.length - 1 ? 0 : current + 1,
+                    );
+                  }}
+                  className="absolute right-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white"
+                  aria-label="Next image"
+                >
+                  <ChevronRight size={22} />
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
