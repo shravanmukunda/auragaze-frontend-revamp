@@ -338,7 +338,7 @@ export async function updateAdminProduct(
     }
 
     for (const variant of variants) {
-      if (variant.id) {
+      if (variant.id && existing.variants.some((v) => v.id === variant.id)) {
         await tx.productVariant.update({
           where: { id: variant.id },
           data: {
@@ -351,6 +351,9 @@ export async function updateAdminProduct(
         continue;
       }
 
+      // Variant has no id, or references an id that no longer exists on this
+      // product (e.g. a stale client submitted after the variant was already
+      // deleted elsewhere) — create it fresh instead of failing the request.
       await tx.productVariant.create({
         data: {
           productId: id,

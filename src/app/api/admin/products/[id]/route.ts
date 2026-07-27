@@ -6,6 +6,7 @@ import {
   setAdminProductActive,
   updateAdminProduct,
 } from "@/lib/admin-product-service";
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 interface RouteContext {
@@ -70,16 +71,26 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
     return NextResponse.json(product);
   } catch (error) {
-    console.error("Failed to update product", error);
-    if (
-      error instanceof Error &&
-      error.message.includes("Unique constraint")
-    ) {
-      return NextResponse.json(
-        { error: "A variant SKU already exists." },
-        { status: 409 },
-      );
+    console.error(`Failed to update product ${id}`, error);
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2002") {
+        return NextResponse.json(
+          { error: "A variant SKU already exists." },
+          { status: 409 },
+        );
+      }
+      if (error.code === "P2025") {
+        return NextResponse.json(
+          {
+            error:
+              "One of the variants no longer exists. Refresh the page and try again.",
+          },
+          { status: 409 },
+        );
+      }
     }
+
     return NextResponse.json(
       { error: "Unable to update product." },
       { status: 500 },
