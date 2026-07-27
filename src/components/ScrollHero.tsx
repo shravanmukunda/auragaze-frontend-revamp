@@ -18,6 +18,13 @@ interface FrameSet {
   basePath: string;
 }
 
+interface DeviceProfile {
+  maxDpr: number;
+  smoothing: ImageSmoothingQuality;
+  frameStride: number;
+  batchSize: number;
+}
+
 function getViewportHeight() {
   return window.visualViewport?.height ?? window.innerHeight;
 }
@@ -28,8 +35,32 @@ function getFrameSet(): FrameSet {
   return (set ?? heroManifest.sets[0]) as FrameSet;
 }
 
-function frameUrl(set: FrameSet, index: number) {
-  return `${set.basePath}/frame_${String(index + 1).padStart(4, "0")}.${set.ext}`;
+function getDeviceProfile(): DeviceProfile {
+  const cores = navigator.hardwareConcurrency || 4;
+  const memory =
+    (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 4;
+  const isMobile = window.matchMedia("(max-width: 768px)").matches;
+  const isLowEnd = memory <= 4 || cores <= 4 || (isMobile && memory <= 6);
+
+  if (isLowEnd) {
+    return {
+      maxDpr: 1,
+      smoothing: "low",
+      frameStride: 2,
+      batchSize: 6,
+    };
+  }
+
+  return {
+    maxDpr: isMobile ? 1.5 : 2,
+    smoothing: "medium",
+    frameStride: 1,
+    batchSize: 10,
+  };
+}
+
+function frameUrl(set: FrameSet, sourceIndex: number) {
+  return `${set.basePath}/frame_${String(sourceIndex + 1).padStart(4, "0")}.${set.ext}`;
 }
 
 function drawCover(
@@ -62,6 +93,18 @@ function drawCover(
   ctx.drawImage(source, offsetX, offsetY, drawWidth, drawHeight);
 }
 
+function buildFrameIndices(totalSourceFrames: number, stride: number) {
+  const indices: number[] = [];
+  for (let i = 0; i < totalSourceFrames; i += stride) {
+    indices.push(i);
+  }
+  const last = totalSourceFrames - 1;
+  if (indices[indices.length - 1] !== last) {
+    indices.push(last);
+  }
+  return indices;
+}
+
 export default function ScrollHero({ posterSrc, children }: ScrollHeroProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const stickyRef = useRef<HTMLDivElement>(null);
@@ -76,6 +119,10 @@ export default function ScrollHero({ posterSrc, children }: ScrollHeroProps) {
     if (!section || !sticky || !canvas) return;
 
     const frameSet = getFrameSet();
+    const profile = getDeviceProfile();
+    const sourceIndices = buildFrameIndices(frameSet.count, profile.frameStride);
+    const frameCount = sourceIndices.length;
+
     const ctx = canvas.getContext("2d", {
       alpha: false,
       desynchronized: true,
@@ -83,7 +130,7 @@ export default function ScrollHero({ posterSrc, children }: ScrollHeroProps) {
     if (!ctx) return;
 
     ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
+    ctx.imageSmoothingQuality = profile.smoothing;
 
     let cancelled = false;
     let scrollRange = getViewportHeight();
@@ -91,11 +138,12 @@ export default function ScrollHero({ posterSrc, children }: ScrollHeroProps) {
     let scrolling = false;
     let scrollEndTimer = 0;
     let tickId = 0;
-    let frameCount = frameSet.count;
     let frameWidth = frameSet.width;
     let frameHeight = 0;
-    let frames: (HTMLImageElement | null)[] = Array(frameCount).fill(null);
+    let frames: (ImageBitmap | HTMLImageElement | null)[] = Array(frameCount).fill(null);
+    let loading = new Set<number>();
     let canvasReady = false;
+    let lastDrawnIndex = -1;
 
     const syncLayout = () => {
       const vh = getViewportHeight();
@@ -104,11 +152,13 @@ export default function ScrollHero({ posterSrc, children }: ScrollHeroProps) {
       sticky.style.height = `${vh}px`;
       section.style.height = `${vh * 2}px`;
 
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, profile.maxDpr);
       canvas.width = Math.round(sticky.clientWidth * dpr);
       canvas.height = Math.round(sticky.clientHeight * dpr);
       canvas.style.width = "100%";
       canvas.style.height = "100%";
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = profile.smoothing;
     };
 
     const getProgress = () => {
@@ -117,42 +167,43 @@ export default function ScrollHero({ posterSrc, children }: ScrollHeroProps) {
       return Math.min(1, Math.max(0, scrolled / scrollRange));
     };
 
-    const resolveFrame = (index: number) => {
-      if (frames[index]) return frames[index];
-      for (let i = index; i >= 0; i--) if (frames[i]) return frames[i];
-      for (let i = index + 1; i < frameCount; i++) if (frames[i]) return frames[i];
-      return null;
+    const drawFrame = (index: number) => {
+      const img = frames[index];
+      if (!img) return false;
+
+      if (!frameHeight) {
+        frameHeight =
+          "naturalHeight" in img ? img.naturalHeight : img.height;
+      }
+
+      // Opaque cover draw — no clearRect (avoids blank flashes on slow GPUs)
+      drawCover(ctx, img, frameWidth, frameHeight, canvas.width, canvas.height);
+      lastDrawnIndex = index;
+      return true;
     };
 
     const drawAtProgress = (progress: number) => {
       if (!canvasReady) return;
 
-      const exact = progress * (frameCount - 1);
-      const low = Math.floor(exact);
-      const high = Math.min(frameCount - 1, low + 1);
-      const blend = exact - low;
+      const index = Math.round(progress * (frameCount - 1));
 
-      const imgLow = resolveFrame(low);
-      if (!imgLow) return;
-
-      if (!frameHeight) {
-        frameHeight = imgLow.naturalHeight;
-      }
-
-      const imgHigh = high === low ? null : resolveFrame(high);
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (!imgHigh || blend < 0.001) {
-        drawCover(ctx, imgLow, frameWidth, frameHeight, canvas.width, canvas.height);
+      // Only draw if this exact frame is ready; otherwise keep last drawn frame
+      if (frames[index]) {
+        if (index !== lastDrawnIndex) {
+          drawFrame(index);
+        }
         return;
       }
 
-      ctx.globalAlpha = 1 - blend;
-      drawCover(ctx, imgLow, frameWidth, frameHeight, canvas.width, canvas.height);
-      ctx.globalAlpha = blend;
-      drawCover(ctx, imgHigh, frameWidth, frameHeight, canvas.width, canvas.height);
-      ctx.globalAlpha = 1;
+      // First paint only: fall back to nearest ready frame once
+      if (lastDrawnIndex < 0) {
+        for (let i = index; i >= 0; i--) {
+          if (frames[i] && drawFrame(i)) return;
+        }
+        for (let i = index + 1; i < frameCount; i++) {
+          if (frames[i] && drawFrame(i)) return;
+        }
+      }
     };
 
     const scrub = () => {
@@ -177,43 +228,88 @@ export default function ScrollHero({ posterSrc, children }: ScrollHeroProps) {
       }, 80);
     };
 
-    const loadFrame = (index: number) =>
-      new Promise<void>((resolve) => {
-        const img = new Image();
-        img.decoding = "async";
-        img.onload = () => {
-          if (!cancelled) {
-            frames[index] = img;
-            if (index === 0) {
-              frameHeight = img.naturalHeight;
-            }
+    const loadFrame = async (index: number) => {
+      if (cancelled || frames[index] || loading.has(index)) return;
+      loading.add(index);
+
+      try {
+        const response = await fetch(frameUrl(frameSet, sourceIndices[index]));
+        if (!response.ok || cancelled) return;
+
+        const blob = await response.blob();
+        if (cancelled) return;
+
+        if (typeof createImageBitmap === "function") {
+          const bitmap = await createImageBitmap(blob);
+          if (cancelled) {
+            bitmap.close();
+            return;
           }
-          resolve();
-        };
-        img.onerror = () => resolve();
-        img.src = frameUrl(frameSet, index);
-      });
+          frames[index] = bitmap;
+          if (index === 0) frameHeight = bitmap.height;
+        } else {
+          const img = await new Promise<HTMLImageElement | null>((resolve) => {
+            const image = new Image();
+            image.decoding = "async";
+            image.onload = () => resolve(image);
+            image.onerror = () => resolve(null);
+            image.src = URL.createObjectURL(blob);
+          });
+          if (!img || cancelled) return;
+          frames[index] = img;
+          if (index === 0) frameHeight = img.naturalHeight;
+        }
+      } catch {
+        // Skip failed frames; keep last good draw
+      } finally {
+        loading.delete(index);
+      }
+    };
+
+    const prioritizeLoadOrder = (center: number) => {
+      const order: number[] = [];
+      const seen = new Set<number>();
+      const push = (i: number) => {
+        if (i < 0 || i >= frameCount || seen.has(i)) return;
+        seen.add(i);
+        order.push(i);
+      };
+
+      push(center);
+      for (let radius = 1; radius < frameCount; radius++) {
+        push(center - radius);
+        push(center + radius);
+      }
+      return order;
+    };
 
     const loadFrames = async () => {
       await loadFrame(0);
-      if (cancelled) return;
+      if (cancelled || !frames[0]) return;
 
       canvasReady = true;
       canvas.style.visibility = "visible";
       if (poster) poster.style.opacity = "0";
       scrub();
 
-      const rest = Array.from({ length: frameCount - 1 }, (_, i) => i + 1);
-      const batchSize = 10;
+      // Fill remaining frames by proximity to current scroll progress
+      while (!cancelled) {
+        const center = Math.round(getProgress() * (frameCount - 1));
+        const pending = prioritizeLoadOrder(center).filter(
+          (i) => !frames[i] && !loading.has(i),
+        );
+        if (pending.length === 0) break;
 
-      for (let i = 0; i < rest.length; i += batchSize) {
-        if (cancelled) return;
-        await Promise.all(rest.slice(i, i + batchSize).map(loadFrame));
+        const batch = pending.slice(0, profile.batchSize);
+        await Promise.all(batch.map(loadFrame));
+        scrub();
       }
     };
 
     const onResize = () => {
       syncLayout();
+      // Force redraw after canvas buffer resize
+      lastDrawnIndex = -1;
       scrub();
     };
 
@@ -231,6 +327,12 @@ export default function ScrollHero({ posterSrc, children }: ScrollHeroProps) {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
       window.visualViewport?.removeEventListener("resize", onResize);
+
+      for (const frame of frames) {
+        if (frame && "close" in frame && typeof frame.close === "function") {
+          frame.close();
+        }
+      }
     };
   }, []);
 
