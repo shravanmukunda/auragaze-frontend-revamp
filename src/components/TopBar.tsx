@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Search, ShoppingCart } from "lucide-react";
@@ -33,18 +34,23 @@ export default function TopBar({ title, transparent = false }: TopBarProps) {
       <div
         className={transparent ? "" : "glass border-b border-[var(--glass-border)]"}
       >
-        <div className="max-w-lg mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/" className="no-select">
-            <motion.div whileTap={{ scale: 0.95 }}>
+        <div className="max-w-lg mx-auto px-4 h-14 flex items-center justify-between gap-3">
+          <Link href="/" className="no-select min-w-0" aria-label="AURAGAZE home">
+            <motion.div whileTap={{ scale: 0.95 }} className="flex items-center">
               {title ? (
                 <h1 className="font-bold text-base" style={{ color: "var(--foreground)" }}>
                   {title}
                 </h1>
               ) : (
-                <div className="flex items-center gap-1.5">
-                  <span className="font-heading font-black text-xl tracking-wider text-brand">
-                    AURAGAZE
-                  </span>
+                <div className="relative h-9 w-[13rem] sm:h-10 sm:w-[15rem]">
+                  <Image
+                    src="/logo/logo-wordmark.png"
+                    alt="AURAGAZE"
+                    fill
+                    priority
+                    sizes="240px"
+                    className="object-contain object-left brightness-0 dark:brightness-100"
+                  />
                 </div>
               )}
             </motion.div>
