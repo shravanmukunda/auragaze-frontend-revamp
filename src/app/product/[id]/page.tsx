@@ -35,7 +35,7 @@ interface PageProps {
 export default function ProductPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
-  const { addItem } = useCart();
+  const { addItem, itemCount, hydrated } = useCart();
   const { getProduct, getSimilarProducts, loading, error } = useCatalog();
   const product = getProduct(id);
 
@@ -46,6 +46,13 @@ export default function ProductPage({ params }: PageProps) {
   const [addedToCart, setAddedToCart] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const showCartBadge = mounted && hydrated && itemCount > 0;
 
   const imageCount = product?.images.length ?? 0;
 
@@ -181,6 +188,23 @@ export default function ProductPage({ params }: PageProps) {
 
           <div className="flex items-center gap-2">
             <WishlistButton productId={product.id} />
+            <Link href="/cart">
+              <motion.div
+                whileTap={{ scale: 0.9 }}
+                className="w-10 h-10 rounded-full glass flex items-center justify-center relative no-select"
+                aria-label="Cart"
+              >
+                <ShoppingCart size={16} style={{ color: "var(--foreground)" }} />
+                {showCartBadge && (
+                  <span
+                    suppressHydrationWarning
+                    className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-0.5 bg-blue-600 rounded-full text-[9px] text-white font-bold flex items-center justify-center"
+                  >
+                    {itemCount > 9 ? "9+" : itemCount}
+                  </span>
+                )}
+              </motion.div>
+            </Link>
             <motion.button
               whileTap={{ scale: 0.9 }}
               className="w-10 h-10 rounded-full glass flex items-center justify-center no-select"
