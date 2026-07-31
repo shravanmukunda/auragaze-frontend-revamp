@@ -17,6 +17,7 @@ export interface OrderLine {
   quantity: number;
   price: number;
   lineTotal: number;
+  variantId?: string;
 }
 
 export interface OrderSummary {

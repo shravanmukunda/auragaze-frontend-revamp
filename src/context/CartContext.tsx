@@ -195,6 +195,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const authSyncedRef = useRef(false);
+  const itemsRef = useRef(items);
+  const mutationSeqRef = useRef(0);
+  itemsRef.current = items;
 
   useEffect(() => {
     if (status === "loading") return;
@@ -274,27 +277,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const addItem = useCallback(
     async (variantId: string, quantity = 1) => {
-      if (status === "authenticated") {
-        setSyncing(true);
-        try {
-          const res = await fetch("/api/cart", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ variantId, quantity }),
-          });
-          const cart = await readCartResponse(res);
-          setItems(cart.items);
-          toast.success(quantity > 1 ? `${quantity} items added to cart.` : "Added to cart.");
-        } catch (error) {
-          toast.error(
-            error instanceof Error ? error.message : "Unable to update cart.",
-          );
-        } finally {
-          setSyncing(false);
-        }
-        return;
-      }
-
       const match = findProductForVariant(products, variantId);
       if (!match) {
         toast.error("This variant is no longer available.");
@@ -305,6 +287,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      const snapshot = itemsRef.current;
       let added = false;
       let cappedAtStock = false;
       setItems((prev) => {
@@ -328,12 +311,37 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return [...prev, enriched];
       });
       setHydrated(true);
+
       if (cappedAtStock) {
         toast.error("Only the available stock was added to your cart.");
       } else if (added) {
-        toast.success("Added to cart.");
+        toast.success(
+          quantity > 1 ? `${quantity} items added to cart.` : "Added to cart.",
+        );
       } else {
         toast.success("Cart updated.");
+      }
+
+      if (status !== "authenticated") return;
+
+      const seq = ++mutationSeqRef.current;
+      try {
+        const res = await fetch("/api/cart", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ variantId, quantity }),
+        });
+        const cart = await readCartResponse(res);
+        if (seq === mutationSeqRef.current) {
+          setItems(cart.items);
+        }
+      } catch (error) {
+        if (seq === mutationSeqRef.current) {
+          setItems(snapshot);
+          toast.error(
+            error instanceof Error ? error.message : "Unable to update cart.",
+          );
+        }
       }
     },
     [products, status],
@@ -341,30 +349,30 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const removeItem = useCallback(
     async (variantId: string) => {
-      if (status === "authenticated") {
-        setSyncing(true);
-        try {
-          const res = await fetch(
-            `/api/cart?variantId=${encodeURIComponent(variantId)}`,
-            { method: "DELETE" },
-          );
-          const cart = await readCartResponse(res);
+      const snapshot = itemsRef.current;
+      setItems((prev) => prev.filter((item) => item.variantId !== variantId));
+      toast.success("Removed from cart.");
+
+      if (status !== "authenticated") return;
+
+      const seq = ++mutationSeqRef.current;
+      try {
+        const res = await fetch(
+          `/api/cart?variantId=${encodeURIComponent(variantId)}`,
+          { method: "DELETE" },
+        );
+        const cart = await readCartResponse(res);
+        if (seq === mutationSeqRef.current) {
           setItems(cart.items);
-          toast.success("Removed from cart.");
-        } catch (error) {
+        }
+      } catch (error) {
+        if (seq === mutationSeqRef.current) {
+          setItems(snapshot);
           toast.error(
             error instanceof Error ? error.message : "Unable to remove item.",
           );
-        } finally {
-          setSyncing(false);
         }
-        return;
       }
-
-      setItems((prev) =>
-        prev.filter((item) => item.variantId !== variantId),
-      );
-      toast.success("Removed from cart.");
     },
     [status],
   );
@@ -373,26 +381,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     async (variantId: string, quantity: number) => {
       if (quantity <= 0) {
         await removeItem(variantId);
-        return;
-      }
-
-      if (status === "authenticated") {
-        setSyncing(true);
-        try {
-          const res = await fetch("/api/cart", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ variantId, quantity }),
-          });
-          const cart = await readCartResponse(res);
-          setItems(cart.items);
-        } catch (error) {
-          toast.error(
-            error instanceof Error ? error.message : "Unable to update quantity.",
-          );
-        } finally {
-          setSyncing(false);
-        }
         return;
       }
 
@@ -408,6 +396,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      const snapshot = itemsRef.current;
       setItems((prev) =>
         prev.map((item) =>
           item.variantId === variantId
@@ -418,37 +407,65 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (capped < quantity) {
         toast.error("Quantity was adjusted to match available stock.");
       }
+
+      if (status !== "authenticated") return;
+
+      const seq = ++mutationSeqRef.current;
+      try {
+        const res = await fetch("/api/cart", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ variantId, quantity: capped }),
+        });
+        const cart = await readCartResponse(res);
+        if (seq === mutationSeqRef.current) {
+          setItems(cart.items);
+        }
+      } catch (error) {
+        if (seq === mutationSeqRef.current) {
+          setItems(snapshot);
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Unable to update quantity.",
+          );
+        }
+      }
     },
     [products, removeItem, status],
   );
 
   const clearCart = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
-    if (status === "authenticated") {
-      setSyncing(true);
-      try {
-        const res = await fetch("/api/cart?clear=true", { method: "DELETE" });
-        const cart = await readCartResponse(res);
+    const snapshot = itemsRef.current;
+    setItems([]);
+    if (status !== "authenticated") {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+    if (!silent) {
+      toast.success("Cart cleared.");
+    }
+
+    if (status !== "authenticated") return;
+
+    const seq = ++mutationSeqRef.current;
+    try {
+      const res = await fetch("/api/cart?clear=true", { method: "DELETE" });
+      const cart = await readCartResponse(res);
+      if (seq === mutationSeqRef.current) {
         setItems(cart.items);
+      }
+    } catch (error) {
+      if (seq === mutationSeqRef.current) {
+        // After checkout, server cart is already empty — keep UI empty on
+        // silent clear failures instead of restoring stale line items.
         if (!silent) {
-          toast.success("Cart cleared.");
-        }
-      } catch (error) {
-        if (!silent) {
+          setItems(snapshot);
           toast.error(
             error instanceof Error ? error.message : "Unable to clear cart.",
           );
         }
-      } finally {
-        setSyncing(false);
       }
-      return;
-    }
-
-    setItems([]);
-    localStorage.removeItem(STORAGE_KEY);
-    if (!silent) {
-      toast.success("Cart cleared.");
     }
   }, [status]);
 

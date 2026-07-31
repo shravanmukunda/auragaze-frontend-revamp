@@ -74,6 +74,12 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 
       const wishlisted = productIds.includes(productId);
 
+      setProductIds((current) =>
+        wishlisted
+          ? current.filter((id) => id !== productId)
+          : [productId, ...current],
+      );
+
       try {
         const response = await fetch(
           wishlisted
@@ -88,19 +94,23 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 
         const data = (await response.json()) as { error?: string };
         if (!response.ok) {
+          setProductIds((current) =>
+            wishlisted
+              ? [productId, ...current]
+              : current.filter((id) => id !== productId),
+          );
           toast.error(data.error ?? "Unable to update wishlist.");
           return wishlisted;
         }
 
-        setProductIds((current) =>
-          wishlisted
-            ? current.filter((id) => id !== productId)
-            : [productId, ...current],
-        );
-
         toast.success(wishlisted ? "Removed from wishlist." : "Saved to wishlist.");
         return !wishlisted;
       } catch {
+        setProductIds((current) =>
+          wishlisted
+            ? [productId, ...current]
+            : current.filter((id) => id !== productId),
+        );
         toast.error("Unable to update wishlist.");
         return wishlisted;
       }

@@ -105,7 +105,12 @@ export default function HomePage() {
                 />
               ))}
             {featuredProducts.map((product, i) => (
-              <ProductCard key={product.id} product={product} index={i} />
+              <ProductCard
+                key={product.id}
+                product={product}
+                index={i}
+                animateEntrance
+              />
             ))}
           </div>
         )}
@@ -142,7 +147,7 @@ export default function HomePage() {
           <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory">
             {newArrivals.map((product, i) => (
               <div key={product.id} className="flex-none w-40 snap-start">
-                <ProductCard product={product} index={i} />
+                <ProductCard product={product} index={i} animateEntrance />
               </div>
             ))}
           </div>

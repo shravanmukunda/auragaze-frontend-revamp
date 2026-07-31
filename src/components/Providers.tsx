@@ -8,6 +8,7 @@ import { Toaster } from "sonner";
 import { CatalogProvider } from "@/context/CatalogContext";
 import { CartProvider } from "@/context/CartContext";
 import { WishlistProvider } from "@/context/WishlistContext";
+import { ShippingSettingsProvider } from "@/context/ShippingSettingsContext";
 import FloatingNav from "./FloatingNav";
 import Footer from "./Footer";
 import SplashScreen from "./SplashScreen";
@@ -21,23 +22,25 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
       <SessionProvider>
-        <CatalogProvider>
-          <CartProvider>
-            <WishlistProvider>
-              {!isAdminRoute && (
-                <SplashScreen onComplete={handleSplashComplete} />
-              )}
-              {children}
-              <Toaster richColors position="top-center" />
-              {appReady && !isAdminRoute && (
-                <>
-                  <Footer />
-                  <FloatingNav />
-                </>
-              )}
-            </WishlistProvider>
-          </CartProvider>
-        </CatalogProvider>
+        <ShippingSettingsProvider>
+          <CatalogProvider>
+            <CartProvider>
+              <WishlistProvider>
+                {!isAdminRoute && (
+                  <SplashScreen onComplete={handleSplashComplete} />
+                )}
+                {children}
+                <Toaster richColors position="top-center" />
+                {appReady && !isAdminRoute && (
+                  <>
+                    <Footer />
+                    <FloatingNav />
+                  </>
+                )}
+              </WishlistProvider>
+            </CartProvider>
+          </CatalogProvider>
+        </ShippingSettingsProvider>
       </SessionProvider>
     </ThemeProvider>
   );

@@ -8,8 +8,10 @@ import {
   LayoutDashboard,
   LogOut,
   Package,
+  Percent,
   ShoppingBag,
   Store,
+  Truck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +20,8 @@ const navItems = [
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/inventory", label: "Inventory", icon: Boxes },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
+  { href: "/admin/promos", label: "Promos", icon: Percent },
+  { href: "/admin/shipping", label: "Shipping", icon: Truck },
 ];
 
 export default function AdminSidebar() {

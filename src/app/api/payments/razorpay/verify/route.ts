@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { CheckoutError, placeOrder } from "@/lib/checkout-service";
-import { verifyRazorpayPaymentSignature, isRazorpayConfigured } from "@/lib/razorpay";
+import {
+  fetchVerifiedRazorpayPayment,
+  isRazorpayConfigured,
+  verifyRazorpayPaymentSignature,
+} from "@/lib/razorpay";
 import { getSessionUser } from "@/lib/session";
 import type { ShippingAddress } from "@/types/order";
 
@@ -103,6 +107,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Payment verification failed" }, { status: 400 });
   }
 
+  let paidAmountPaise: number;
+  try {
+    const payment = await fetchVerifiedRazorpayPayment(
+      razorpayOrderId,
+      razorpayPaymentId,
+    );
+    paidAmountPaise = payment.amountPaise;
+  } catch (error) {
+    console.error("Razorpay payment fetch/validate failed:", error);
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to confirm payment with Razorpay",
+      },
+      { status: 400 },
+    );
+  }
+
   try {
     const result = await placeOrder(user.id, shippingAddress, {
       saveAddress: payload.saveAddress === true,
@@ -112,6 +136,7 @@ export async function POST(req: Request) {
       paymentStatus: "PAID",
       razorpayOrderId,
       razorpayPaymentId,
+      expectedPaidAmountPaise: paidAmountPaise,
     });
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

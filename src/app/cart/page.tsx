@@ -8,16 +8,18 @@ import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import PromoCodeForm from "@/components/PromoCodeForm";
 import TopBar from "@/components/TopBar";
 import { useCart } from "@/context/CartContext";
-import { FREE_SHIPPING_THRESHOLD, SHIPPING_FEE } from "@/lib/data";
+import { useShippingSettings } from "@/context/ShippingSettingsContext";
 import { formatPrice } from "@/lib/utils";
 
 export default function CartPage() {
   const { items, subtotal, itemCount, updateQuantity, removeItem, hydrated, syncing } =
     useCart();
+  const { shippingFee, freeShippingThreshold } = useShippingSettings();
   const [promoDiscount, setPromoDiscount] = useState(0);
 
   const hasItems = items.length > 0;
-  const shipping = !hasItems || subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+  const shipping =
+    !hasItems || subtotal >= freeShippingThreshold ? 0 : shippingFee;
   const total = Math.max(0, subtotal + shipping - promoDiscount);
 
   return (
@@ -140,7 +142,6 @@ export default function CartPage() {
                             onClick={() =>
                               updateQuantity(item.variantId, item.quantity - 1)
                             }
-                            disabled={syncing}
                             className="w-7 h-7 rounded-lg flex items-center justify-center no-select disabled:opacity-50"
                             style={{
                               background: "var(--background)",
@@ -161,7 +162,7 @@ export default function CartPage() {
                             onClick={() =>
                               updateQuantity(item.variantId, item.quantity + 1)
                             }
-                            disabled={syncing || item.quantity >= item.stock}
+                            disabled={item.quantity >= item.stock}
                             className="w-7 h-7 rounded-lg flex items-center justify-center no-select disabled:opacity-50"
                             style={{
                               background: "var(--background)",
@@ -180,7 +181,6 @@ export default function CartPage() {
                           <motion.button
                             whileTap={{ scale: 0.85 }}
                             onClick={() => removeItem(item.variantId)}
-                            disabled={syncing}
                             className="w-8 h-8 rounded-lg flex items-center justify-center no-select disabled:opacity-50"
                             style={{
                               background: "rgba(239,68,68,0.08)",
@@ -235,9 +235,9 @@ export default function CartPage() {
                     <span>-{formatPrice(promoDiscount)}</span>
                   </div>
                 ) : null}
-                {subtotal > 0 && subtotal < FREE_SHIPPING_THRESHOLD && (
+                {subtotal > 0 && subtotal < freeShippingThreshold && (
                   <p className="text-[11px] label-accent">
-                    Add {formatPrice(FREE_SHIPPING_THRESHOLD - subtotal)} more for free shipping
+                    Add {formatPrice(freeShippingThreshold - subtotal)} more for free shipping
                   </p>
                 )}
                 <div

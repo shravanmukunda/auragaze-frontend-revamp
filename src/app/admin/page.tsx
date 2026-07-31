@@ -3,9 +3,11 @@ import {
   Boxes,
   IndianRupee,
   Package,
+  Percent,
   Plus,
   ShoppingBag,
   TrendingUp,
+  Truck,
 } from "lucide-react";
 import {
   orderStatusLabel,
@@ -167,6 +169,30 @@ export default async function AdminOverviewPage() {
             <h2 className="font-heading text-lg font-bold">Orders</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">
               {stats.openOrders} open orders awaiting fulfillment.
+            </p>
+          </Link>
+          <Link
+            href="/admin/promos"
+            className="surface-card rounded-2xl p-5 transition-transform hover:-translate-y-0.5"
+          >
+            <div className="mb-4 inline-flex rounded-xl bg-[var(--primary-muted)] p-3 text-[var(--label-accent)]">
+              <Percent size={20} />
+            </div>
+            <h2 className="font-heading text-lg font-bold">Promos</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Create and manage discount codes.
+            </p>
+          </Link>
+          <Link
+            href="/admin/shipping"
+            className="surface-card rounded-2xl p-5 transition-transform hover:-translate-y-0.5"
+          >
+            <div className="mb-4 inline-flex rounded-xl bg-[var(--primary-muted)] p-3 text-[var(--label-accent)]">
+              <Truck size={20} />
+            </div>
+            <h2 className="font-heading text-lg font-bold">Shipping</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Flat fee and free-shipping threshold.
             </p>
           </Link>
         </div>

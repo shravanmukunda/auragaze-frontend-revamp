@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { PromoValidation } from "@/types/promo";
 import { PromoType } from "@prisma/client";
+import { calculatePromoDiscount } from "@/lib/commerce-math";
 
 export class PromoError extends Error {
   status: number;
@@ -34,19 +35,13 @@ function normalizeCode(code: string) {
 }
 
 function calculateDiscount(promo: PromoRecord, subtotal: number) {
-  if (subtotal <= 0) return 0;
-
-  let discount = 0;
-  if (promo.type === PromoType.PERCENTAGE) {
-    discount = (subtotal * Number(promo.value)) / 100;
-    if (promo.maxDiscount !== null) {
-      discount = Math.min(discount, Number(promo.maxDiscount));
-    }
-  } else {
-    discount = Number(promo.value);
-  }
-
-  return Math.min(subtotal, Math.max(0, Math.round(discount)));
+  return calculatePromoDiscount({
+    type: promo.type === PromoType.PERCENTAGE ? "PERCENTAGE" : "FIXED",
+    value: Number(promo.value),
+    maxDiscount:
+      promo.maxDiscount === null ? null : Number(promo.maxDiscount),
+    subtotal,
+  });
 }
 
 function assertPromoUsable(promo: PromoRecord, subtotal: number) {

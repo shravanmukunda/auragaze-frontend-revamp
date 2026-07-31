@@ -170,10 +170,23 @@ async function seedPromoCodes() {
   });
 }
 
+async function seedSiteSettings() {
+  await prisma.siteSettings.upsert({
+    where: { id: "default" },
+    update: {},
+    create: {
+      id: "default",
+      shippingFee: 99,
+      freeShippingThreshold: 4000,
+    },
+  });
+}
+
 async function main() {
   await seedAdmin();
   await seedProducts();
   await seedPromoCodes();
+  await seedSiteSettings();
 
   const [productCount, variantCount] = await Promise.all([
     prisma.product.count(),

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { maybeSendLowStockAlert } from "@/lib/admin-alert-email";
 import {
   LOW_STOCK_THRESHOLD,
   type InventoryAdjustInput,
@@ -232,5 +233,10 @@ export async function adjustInventory(input: InventoryAdjustInput) {
       variant: mapInventoryRow(updated),
       transaction: mapTransaction(transaction),
     };
+  }).then(async (result) => {
+    if (result.variant.stock <= LOW_STOCK_THRESHOLD) {
+      void maybeSendLowStockAlert([result.variant.variantId]);
+    }
+    return result;
   });
 }

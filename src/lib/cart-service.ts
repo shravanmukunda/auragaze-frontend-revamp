@@ -86,13 +86,34 @@ function summarize(items: EnrichedCartLine[]): CartSummary {
   return { items, itemCount, subtotal };
 }
 
-export async function getUserCart(userId: string): Promise<CartSummary> {
-  const cart = await getOrCreateCart(userId);
+type CartWithItems = Awaited<ReturnType<typeof getOrCreateCart>>;
+
+function summarizeCart(cart: { items: CartWithItems["items"] }): CartSummary {
   const items = cart.items
     .map(mapCartItem)
     .filter((item): item is EnrichedCartLine => item !== null);
 
   return summarize(items);
+}
+
+const cartItemInclude = {
+  variant: {
+    include: {
+      product: {
+        include: {
+          images: {
+            orderBy: { sortOrder: "asc" as const },
+            take: 1,
+          },
+        },
+      },
+    },
+  },
+} as const;
+
+export async function getUserCart(userId: string): Promise<CartSummary> {
+  const cart = await getOrCreateCart(userId);
+  return summarizeCart(cart);
 }
 
 async function getActiveVariant(variantId: string) {
@@ -127,10 +148,10 @@ export async function addCartItem(
   );
 
   if (capped <= 0) {
-    return getUserCart(userId);
+    return summarizeCart(cart);
   }
 
-  await prisma.cartItem.upsert({
+  const upserted = await prisma.cartItem.upsert({
     where: {
       cartId_variantId: {
         cartId: cart.id,
@@ -145,9 +166,18 @@ export async function addCartItem(
     update: {
       quantity: capped,
     },
+    include: cartItemInclude,
   });
 
-  return getUserCart(userId);
+  const nextItems = existing
+    ? cart.items.map((item) =>
+        item.variantId === variantId
+          ? { ...item, quantity: capped }
+          : item,
+      )
+    : [...cart.items, upserted];
+
+  return summarizeCart({ items: nextItems });
 }
 
 export async function updateCartItemQuantity(
@@ -160,7 +190,9 @@ export async function updateCartItemQuantity(
     include: cartInclude,
   });
 
-  if (!cart) return getUserCart(userId);
+  if (!cart) {
+    return { items: [], itemCount: 0, subtotal: 0 };
+  }
 
   const existing = cart.items.find((item) => item.variantId === variantId);
   if (!existing) {
@@ -170,13 +202,17 @@ export async function updateCartItemQuantity(
   const nextQuantity = Math.floor(quantity);
   if (nextQuantity <= 0) {
     await prisma.cartItem.delete({ where: { id: existing.id } });
-    return getUserCart(userId);
+    return summarizeCart({
+      items: cart.items.filter((item) => item.id !== existing.id),
+    });
   }
 
   const cappedQuantity = Math.min(existing.variant.stock, nextQuantity);
   if (cappedQuantity <= 0 || !existing.variant.product.isActive) {
     await prisma.cartItem.delete({ where: { id: existing.id } });
-    return getUserCart(userId);
+    return summarizeCart({
+      items: cart.items.filter((item) => item.id !== existing.id),
+    });
   }
 
   await prisma.cartItem.update({
@@ -184,7 +220,13 @@ export async function updateCartItemQuantity(
     data: { quantity: cappedQuantity },
   });
 
-  return getUserCart(userId);
+  return summarizeCart({
+    items: cart.items.map((item) =>
+      item.id === existing.id
+        ? { ...item, quantity: cappedQuantity }
+        : item,
+    ),
+  });
 }
 
 export async function removeCartItem(
@@ -193,20 +235,21 @@ export async function removeCartItem(
 ): Promise<CartSummary> {
   const cart = await prisma.cart.findUnique({
     where: { userId },
-    select: {
-      id: true,
-      items: {
-        where: { variantId },
-        select: { id: true },
-      },
-    },
+    include: cartInclude,
   });
 
-  if (cart?.items[0]) {
-    await prisma.cartItem.delete({ where: { id: cart.items[0].id } });
+  if (!cart) {
+    return { items: [], itemCount: 0, subtotal: 0 };
   }
 
-  return getUserCart(userId);
+  const existing = cart.items.find((item) => item.variantId === variantId);
+  if (existing) {
+    await prisma.cartItem.delete({ where: { id: existing.id } });
+  }
+
+  return summarizeCart({
+    items: cart.items.filter((item) => item.variantId !== variantId),
+  });
 }
 
 export async function clearUserCart(userId: string): Promise<CartSummary> {

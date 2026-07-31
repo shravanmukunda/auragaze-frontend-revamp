@@ -23,6 +23,7 @@ function mapOrderLine(item: OrderItem): OrderLine {
     quantity: item.quantity,
     price,
     lineTotal: price * item.quantity,
+    variantId: item.variantId ?? undefined,
   };
 }
 

@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import TopBar from "@/components/TopBar";
 import PromoCodeForm from "@/components/PromoCodeForm";
 import { useCart } from "@/context/CartContext";
-import { FREE_SHIPPING_THRESHOLD, SHIPPING_FEE } from "@/lib/data";
+import { useShippingSettings } from "@/context/ShippingSettingsContext";
 import { setStoredPromoCode, getStoredPromoCode } from "@/lib/promo-storage";
 import { loadRazorpayCheckoutScript } from "@/lib/razorpay-checkout";
 import { formatPrice, cn } from "@/lib/utils";
@@ -26,6 +26,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { status, data: session } = useSession();
   const { items, subtotal, hydrated, clearCart } = useCart();
+  const { shippingFee, freeShippingThreshold } = useShippingSettings();
   const [submitting, setSubmitting] = useState(false);
   const [checkoutComplete, setCheckoutComplete] = useState(false);
   const [error, setError] = useState("");
@@ -122,7 +123,7 @@ export default function CheckoutPage() {
     setSaveAddress(false);
   }, [savedAddresses, selectedAddressId]);
 
-  const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+  const shipping = subtotal >= freeShippingThreshold ? 0 : shippingFee;
   const total = Math.max(0, subtotal + shipping - promoDiscount);
   const hasItems = items.length > 0;
   const activePromoCode = promoCode ?? getStoredPromoCode() ?? undefined;

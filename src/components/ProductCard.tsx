@@ -10,14 +10,24 @@ import { formatPrice } from "@/lib/utils";
 interface ProductCardProps {
   product: StorefrontProduct;
   index?: number;
+  /** When true, stagger fade-in on first mount (home sections). Off by default for filter grids. */
+  animateEntrance?: boolean;
 }
 
-export default function ProductCard({ product, index = 0 }: ProductCardProps) {
+export default function ProductCard({
+  product,
+  index = 0,
+  animateEntrance = false,
+}: ProductCardProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24 }}
+      initial={animateEntrance ? { opacity: 0, y: 24 } : false}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.06, duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
+      transition={
+        animateEntrance
+          ? { delay: index * 0.06, duration: 0.45, ease: [0.23, 1, 0.32, 1] }
+          : { duration: 0 }
+      }
       whileHover={{ y: -3 }}
       className="group"
     >

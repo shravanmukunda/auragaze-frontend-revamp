@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { sendOrderStatusEmail } from "@/lib/order-email";
 import { mapOrderDetail, mapOrderSummary } from "@/lib/order-mapper";
 import type {
   AdminOrderDetail,
@@ -70,29 +71,45 @@ async function restoreOrderStock(
   items: OrderRecord["items"],
 ) {
   for (const item of items) {
-    const variant = await tx.productVariant.findFirst({
-      where: {
-        size: item.size,
-        color: item.color,
-        product: { name: item.productName },
-      },
-    });
+    let variantId = item.variantId;
 
-    if (!variant) {
-      throw new AdminOrderError(
-        `Unable to restore stock for ${item.productName} (${item.size}, ${item.color}).`,
-        409,
-      );
+    if (!variantId) {
+      const variant = await tx.productVariant.findFirst({
+        where: {
+          size: item.size,
+          color: item.color,
+          product: { name: item.productName },
+        },
+      });
+
+      if (!variant) {
+        throw new AdminOrderError(
+          `Unable to restore stock for ${item.productName} (${item.size}, ${item.color}).`,
+          409,
+        );
+      }
+      variantId = variant.id;
+    } else {
+      const exists = await tx.productVariant.findUnique({
+        where: { id: variantId },
+        select: { id: true },
+      });
+      if (!exists) {
+        throw new AdminOrderError(
+          `Unable to restore stock for ${item.productName} (${item.size}, ${item.color}) — variant missing.`,
+          409,
+        );
+      }
     }
 
     await tx.productVariant.update({
-      where: { id: variant.id },
+      where: { id: variantId },
       data: { stock: { increment: item.quantity } },
     });
 
     await tx.inventoryTransaction.create({
       data: {
-        variantId: variant.id,
+        variantId,
         quantity: item.quantity,
         type: InventoryType.IN,
         note: `Order ${orderId} cancelled — stock restored`,
@@ -148,7 +165,7 @@ export async function updateAdminOrderStatus(
   orderId: string,
   nextStatus: OrderStatus,
 ) {
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: { id: orderId },
       include: orderInclude,
@@ -173,7 +190,7 @@ export async function updateAdminOrderStatus(
       await restoreOrderStock(tx, order.id, order.items);
     }
 
-    const updated = await tx.order.update({
+    const next = await tx.order.update({
       where: { id: orderId },
       data: {
         status: nextStatus,
@@ -184,6 +201,10 @@ export async function updateAdminOrderStatus(
       include: orderInclude,
     });
 
-    return mapAdminOrderDetail(updated);
+    return mapAdminOrderDetail(next);
   });
+
+  void sendOrderStatusEmail(orderId, nextStatus);
+
+  return updated;
 }

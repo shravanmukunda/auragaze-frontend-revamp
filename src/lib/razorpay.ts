@@ -48,4 +48,61 @@ export function verifyRazorpayPaymentSignature(
   return expected === signature;
 }
 
+export type VerifiedRazorpayPayment = {
+  paymentId: string;
+  orderId: string;
+  amountPaise: number;
+  currency: string;
+  status: string;
+};
+
+/**
+ * Fetches the payment from Razorpay and confirms it belongs to the given
+ * order, is captured, and is in INR. Call after signature verification.
+ */
+export async function fetchVerifiedRazorpayPayment(
+  razorpayOrderId: string,
+  razorpayPaymentId: string,
+): Promise<VerifiedRazorpayPayment> {
+  const razorpay = getRazorpayClient();
+  const [payment, order] = await Promise.all([
+    razorpay.payments.fetch(razorpayPaymentId),
+    razorpay.orders.fetch(razorpayOrderId),
+  ]);
+
+  if (payment.order_id !== razorpayOrderId) {
+    throw new Error("Payment does not belong to the expected Razorpay order");
+  }
+
+  const status = String(payment.status);
+  const captured =
+    payment.captured === true || status === "captured";
+
+  if (!captured) {
+    throw new Error(`Payment is not captured (status: ${status})`);
+  }
+
+  const currency = String(payment.currency ?? "").toUpperCase();
+  if (currency !== "INR") {
+    throw new Error(`Unexpected payment currency: ${currency || "unknown"}`);
+  }
+
+  const amountPaise = Number(payment.amount);
+  const orderAmountPaise = Number(order.amount);
+  if (!Number.isFinite(amountPaise) || amountPaise <= 0) {
+    throw new Error("Invalid payment amount from Razorpay");
+  }
+  if (!Number.isFinite(orderAmountPaise) || amountPaise !== orderAmountPaise) {
+    throw new Error("Payment amount does not match the Razorpay order");
+  }
+
+  return {
+    paymentId: String(payment.id),
+    orderId: String(payment.order_id),
+    amountPaise,
+    currency,
+    status,
+  };
+}
+
 export { getRazorpayKeyId };

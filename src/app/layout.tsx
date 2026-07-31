@@ -20,13 +20,20 @@ const syne = Syne({
 });
 
 export const metadata: Metadata = {
-  title: "AURAGAZE — Dress With Intention",
+  metadataBase: new URL(
+    process.env.NEXTAUTH_URL?.replace(/\/$/, "") || "http://localhost:3000",
+  ),
+  title: {
+    default: "AURAGAZE — Dress With Intention",
+    template: "%s · AURAGAZE",
+  },
   description: "Premium oversized tees and streetwear. Discover curated drops, new arrivals, and everyday essentials.",
   keywords: ["oversized tees", "streetwear", "apparel", "t-shirts", "AURAGAZE", "BLUORNG"],
   openGraph: {
     title: "AURAGAZE",
     description: "Premium oversized tees for the bold.",
     type: "website",
+    siteName: "AURAGAZE",
   },
 };
 

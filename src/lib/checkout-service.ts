@@ -1,9 +1,19 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { FREE_SHIPPING_THRESHOLD, SHIPPING_FEE } from "@/lib/data";
+import {
+  sendNewOrderAdminAlert,
+  maybeSendLowStockAlert,
+} from "@/lib/admin-alert-email";
+import { sendOrderConfirmationEmail } from "@/lib/order-email";
 import { mapOrderDetail, mapOrderSummary } from "@/lib/order-mapper";
 import { reservePromoCode, validatePromoCode } from "@/lib/promo-service";
+import { rupeesToPaise } from "@/lib/razorpay";
+import {
+  computeShippingFee,
+  getShippingSettings,
+} from "@/lib/shipping-settings";
 import type { CheckoutResult, ShippingAddress } from "@/types/order";
+import type { ShippingSettings } from "@/types/admin-settings";
 
 export class CheckoutError extends Error {
   status: number;
@@ -22,6 +32,8 @@ export interface PlaceOrderOptions {
   paymentStatus?: "PENDING" | "PAID";
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
+  /** Paid amount in paise from Razorpay — must match recomputed cart total. */
+  expectedPaidAmountPaise?: number;
 }
 
 export interface CheckoutTotals {
@@ -108,12 +120,14 @@ async function computeTotals(
   cart: CartWithItems,
   promoCodeInput?: string,
   tx?: Prisma.TransactionClient,
+  shippingSettings?: ShippingSettings,
 ): Promise<CheckoutTotals> {
+  const settings = shippingSettings ?? (await getShippingSettings());
   const subtotal = cart.items.reduce(
     (sum, item) => sum + Number(item.variant.product.price) * item.quantity,
     0,
   );
-  const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+  const shippingFee = computeShippingFee(subtotal, settings);
 
   let discount = 0;
   let promoCode: string | undefined;
@@ -156,7 +170,8 @@ export async function getCheckoutTotals(
   });
 
   validateCartItems(cart);
-  return computeTotals(cart!, promoCode);
+  const shippingSettings = await getShippingSettings();
+  return computeTotals(cart!, promoCode, undefined, shippingSettings);
 }
 
 export async function placeOrder(
@@ -172,6 +187,9 @@ export async function placeOrder(
   if (paymentMethod === "RAZORPAY") {
     if (!options?.razorpayOrderId || !options?.razorpayPaymentId) {
       throw new CheckoutError("Razorpay payment details are required", 400);
+    }
+    if (options.expectedPaidAmountPaise == null) {
+      throw new CheckoutError("Paid amount verification is required", 400);
     }
 
     const existingPayment = await prisma.order.findUnique({
@@ -204,7 +222,27 @@ export async function placeOrder(
 
     validateCartItems(cart);
 
-    const totals = await computeTotals(cart!, options?.promoCode, tx);
+    const shippingSettings = await getShippingSettings();
+    const totals = await computeTotals(
+      cart!,
+      options?.promoCode,
+      tx,
+      shippingSettings,
+    );
+
+    if (paymentMethod === "RAZORPAY") {
+      const cartPaise = rupeesToPaise(totals.total);
+      const paidPaise = options!.expectedPaidAmountPaise!;
+      // Reject only underpayment (cart grew / price rose after pay).
+      // Overpayment (cart shrunk) still creates the order so a captured
+      // payment is not left without a matching order.
+      if (cartPaise > paidPaise) {
+        throw new CheckoutError(
+          "Your cart total is higher than the amount paid. Contact support with your Razorpay payment ID.",
+          409,
+        );
+      }
+    }
 
     const createdOrder = await tx.order.create({
       data: {
@@ -227,11 +265,14 @@ export async function placeOrder(
             color: item.variant.color,
             quantity: item.quantity,
             price: item.variant.product.price,
+            variantId: item.variantId,
           })),
         },
       },
       include: { items: true },
     });
+
+    const touchedVariantIds: string[] = [];
 
     for (const item of cart!.items) {
       const updated = await tx.productVariant.updateMany({
@@ -250,6 +291,8 @@ export async function placeOrder(
           409,
         );
       }
+
+      touchedVariantIds.push(item.variantId);
 
       await tx.inventoryTransaction.create({
         data: {
@@ -284,12 +327,16 @@ export async function placeOrder(
       });
     }
 
-    return createdOrder;
+    return { order: createdOrder, touchedVariantIds };
   });
 
+  void sendOrderConfirmationEmail(order.order.id);
+  void sendNewOrderAdminAlert(order.order.id);
+  void maybeSendLowStockAlert(order.touchedVariantIds);
+
   return {
-    orderId: order.id,
-    total: Number(order.total),
+    orderId: order.order.id,
+    total: Number(order.order.total),
   };
 }
 

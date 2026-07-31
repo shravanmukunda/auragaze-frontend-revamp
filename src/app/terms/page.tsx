@@ -27,7 +27,7 @@ const sections = [
   {
     title: "5. Returns & Exchanges",
     content:
-      "We accept returns and exchanges within 14 days of delivery, provided the product is unused, unwashed, and in its original condition with all tags attached. Customised or sale items may not be eligible for return. Return shipping costs are borne by the customer unless the product is defective or incorrect.",
+      "We accept returns and exchanges within 30 days of delivery, provided the product is unused, unwashed, and in its original condition with all tags attached. Customised or sale items may not be eligible for return. Return shipping costs are borne by the customer unless the product is defective or incorrect. See our Refund Policy for full details.",
   },
   {
     title: "6. Intellectual Property",
