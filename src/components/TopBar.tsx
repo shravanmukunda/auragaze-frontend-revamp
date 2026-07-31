@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Search, ShoppingCart } from "lucide-react";
@@ -42,16 +41,21 @@ export default function TopBar({ title, transparent = false }: TopBarProps) {
                   {title}
                 </h1>
               ) : (
-                <div className="relative h-9 w-[13rem] sm:h-10 sm:w-[15rem]">
-                  <Image
-                    src="/logo/logo-wordmark.png"
-                    alt="AURAGAZE"
-                    fill
-                    priority
-                    sizes="240px"
-                    className="object-contain object-left brightness-0 dark:brightness-100"
-                  />
-                </div>
+                <div
+                  role="img"
+                  aria-label="AURAGAZE"
+                  className="h-9 w-[13rem] sm:h-10 sm:w-[15rem] bg-[var(--foreground)]"
+                  style={{
+                    WebkitMaskImage: "url(/logo/logo-wordmark.png)",
+                    maskImage: "url(/logo/logo-wordmark.png)",
+                    WebkitMaskSize: "contain",
+                    maskSize: "contain",
+                    WebkitMaskRepeat: "no-repeat",
+                    maskRepeat: "no-repeat",
+                    WebkitMaskPosition: "left center",
+                    maskPosition: "left center",
+                  }}
+                />
               )}
             </motion.div>
           </Link>
