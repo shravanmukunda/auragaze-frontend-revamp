@@ -8,9 +8,12 @@ import { carouselCategories, type CarouselCategory } from "@/lib/data";
 import { useCatalog } from "@/context/CatalogContext";
 import { getLiveCarouselCategories } from "@/lib/category-utils";
 import { cn } from "@/lib/utils";
+import { pageShellClass } from "./PageShell";
 
-const CARD_W = 248;
-const CARD_H = 372;
+const MOBILE_CARD_W = 248;
+const MOBILE_CARD_H = 372;
+const DESKTOP_CARD_W = 320;
+const DESKTOP_CARD_H = 480;
 const DRAG_THRESHOLD = 48;
 const WHEEL_COOLDOWN_MS = 520;
 
@@ -28,26 +31,27 @@ function wrapOffset(index: number, active: number, total: number): number {
   return diff;
 }
 
-function getCardStyle(offset: number) {
+function getCardStyle(offset: number, cardW: number) {
+  const s = cardW / MOBILE_CARD_W;
   if (offset === 0) {
     return { x: 0, scale: 1, opacity: 1, zIndex: 30 };
   }
   if (offset === -1) {
-    return { x: -CARD_W * 0.54, scale: 0.895, opacity: 0.9, zIndex: 18 };
+    return { x: -cardW * 0.54, scale: 0.895, opacity: 0.9, zIndex: 18 };
   }
   if (offset === 1) {
-    return { x: 44, scale: 0.958, opacity: 0.97, zIndex: 26 };
+    return { x: 44 * s, scale: 0.958, opacity: 0.97, zIndex: 26 };
   }
   if (offset === 2) {
-    return { x: 82, scale: 0.918, opacity: 0.91, zIndex: 24 };
+    return { x: 82 * s, scale: 0.918, opacity: 0.91, zIndex: 24 };
   }
   if (offset === 3) {
-    return { x: 118, scale: 0.878, opacity: 0.84, zIndex: 22 };
+    return { x: 118 * s, scale: 0.878, opacity: 0.84, zIndex: 22 };
   }
   if (offset < -1) {
-    return { x: -CARD_W * 0.9, scale: 0.82, opacity: 0, zIndex: 10 };
+    return { x: -cardW * 0.9, scale: 0.82, opacity: 0, zIndex: 10 };
   }
-  return { x: 154 + (offset - 4) * 38, scale: 0.84, opacity: 0, zIndex: 20 };
+  return { x: (154 + (offset - 4) * 38) * s, scale: 0.84, opacity: 0, zIndex: 20 };
 }
 
 interface CarouselCardProps {
@@ -56,10 +60,20 @@ interface CarouselCardProps {
   isActive: boolean;
   onSelect: () => void;
   didDragRef: RefObject<boolean>;
+  cardW: number;
+  cardH: number;
 }
 
-function CarouselCard({ category, offset, isActive, onSelect, didDragRef }: CarouselCardProps) {
-  const style = getCardStyle(offset);
+function CarouselCard({
+  category,
+  offset,
+  isActive,
+  onSelect,
+  didDragRef,
+  cardW,
+  cardH,
+}: CarouselCardProps) {
+  const style = getCardStyle(offset, cardW);
   const visible = Math.abs(offset) <= 3;
 
   const cardInner = (
@@ -72,10 +86,10 @@ function CarouselCard({ category, offset, isActive, onSelect, didDragRef }: Caro
           "object-cover transition-transform duration-700 ease-out",
           isActive && "group-hover:scale-[1.06]"
         )}
-        sizes="248px"
+        sizes="(max-width: 1023px) 248px, 320px"
         draggable={false}
       />
-      <p className="absolute bottom-5 left-0 right-0 text-center text-[13px] font-semibold tracking-wide text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]">
+      <p className="absolute bottom-5 left-0 right-0 text-center text-[13px] lg:text-base font-semibold tracking-wide text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]">
         {category.name}
       </p>
     </div>
@@ -94,10 +108,10 @@ function CarouselCard({ category, offset, isActive, onSelect, didDragRef }: Caro
         !visible && "pointer-events-none"
       )}
       style={{
-        width: CARD_W,
-        height: CARD_H,
-        marginLeft: -CARD_W / 2,
-        marginTop: -CARD_H / 2,
+        width: cardW,
+        height: cardH,
+        marginLeft: -cardW / 2,
+        marginTop: -cardH / 2,
         zIndex: style.zIndex,
       }}
       onClick={() => {
@@ -128,11 +142,15 @@ export default function CategoryCarousel() {
   const { products } = useCatalog();
   const liveCategories = getLiveCarouselCategories(carouselCategories, products);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isDesktop, setIsDesktop] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const wheelLocked = useRef(false);
   const didDrag = useRef(false);
 
   const total = liveCategories.length;
+  const cardW = isDesktop ? DESKTOP_CARD_W : MOBILE_CARD_W;
+  const cardH = isDesktop ? DESKTOP_CARD_H : MOBILE_CARD_H;
+  const stageH = isDesktop ? 540 : 408;
 
   const paginate = useCallback(
     (direction: 1 | -1) => {
@@ -150,6 +168,14 @@ export default function CategoryCarousel() {
       paginate(-1);
     }
   };
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     if (total === 0) {
@@ -187,17 +213,18 @@ export default function CategoryCarousel() {
       index,
       offset: wrapOffset(index, activeIndex, total),
     }))
-    .sort((a, b) => getCardStyle(a.offset).zIndex - getCardStyle(b.offset).zIndex);
+    .sort((a, b) => getCardStyle(a.offset, cardW).zIndex - getCardStyle(b.offset, cardW).zIndex);
 
   if (total === 0) {
     return null;
   }
 
   return (
-    <section className="relative px-1 pt-6 pb-1 max-w-lg mx-auto">
+    <section className={cn(pageShellClass, "relative pt-6 pb-1 px-1 lg:pt-10")}>
       <motion.div
         ref={containerRef}
-        className="relative mx-auto h-[408px] w-full touch-pan-y select-none overflow-visible"
+        className="relative mx-auto w-full touch-pan-y select-none overflow-visible"
+        style={{ height: stageH }}
         drag="x"
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.14}
@@ -214,6 +241,8 @@ export default function CategoryCarousel() {
             isActive={offset === 0}
             onSelect={() => setActiveIndex(index)}
             didDragRef={didDrag}
+            cardW={cardW}
+            cardH={cardH}
           />
         ))}
       </motion.div>

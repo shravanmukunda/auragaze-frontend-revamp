@@ -311,7 +311,7 @@ Implement Sprint <N> — <Name>.
 Constraints:
 - Preserve existing storefront UI/UX unless the sprint requires new pages
 - Prefer wiring real data over redesign
-- Admin is desktop-first; storefront stays mobile-first
+- Admin is desktop-first; storefront is responsive (mobile shell below lg)
 - Do not implement later sprints
 
 Deliver:

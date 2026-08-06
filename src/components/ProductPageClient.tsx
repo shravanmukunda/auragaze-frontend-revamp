@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import WishlistButton from "@/components/WishlistButton";
+import TopBar from "@/components/TopBar";
+import PageShell, { pageShellClass, productGridClass } from "@/components/PageShell";
 import { useCart } from "@/context/CartContext";
 import { useCatalog } from "@/context/CatalogContext";
 import { useShippingSettings } from "@/context/ShippingSettingsContext";
@@ -165,11 +167,56 @@ export default function ProductPageClient({ id }: { id: string }) {
     setTimeout(() => setAddedToCart(false), 2000);
   };
 
+  const AddToCartButton = () => (
+    <motion.button
+      whileTap={{ scale: 0.97 }}
+      onClick={handleAddToCart}
+      disabled={isSoldOut}
+      className="flex-1 h-14 rounded-2xl flex items-center justify-center gap-2.5 text-white font-bold no-select overflow-hidden relative btn-gradient disabled:cursor-not-allowed disabled:opacity-50"
+      style={{
+        background: addedToCart
+          ? "linear-gradient(135deg, #10b981, #059669)"
+          : undefined,
+        boxShadow: addedToCart
+          ? "0 4px 20px rgba(16,185,129,0.4)"
+          : undefined,
+        transition: "background 0.4s ease, box-shadow 0.4s ease",
+      }}
+    >
+      <AnimatePresence mode="wait">
+        {addedToCart ? (
+          <motion.div
+            key="added"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="flex items-center gap-2"
+          >
+            <Check size={18} />
+            Added to Cart!
+          </motion.div>
+        ) : (
+          <motion.div
+            key="add"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="flex items-center gap-2"
+          >
+            <ShoppingCart size={18} />
+            {isSoldOut
+              ? "Selected variant unavailable"
+              : `Add to Cart · ${formatPrice(product.price * qty)}`}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.button>
+  );
+
   return (
-    <div className="min-h-screen pb-44">
-      {/* Sticky Header */}
-      <div className="fixed top-0 left-0 right-0 z-40 glass border-b border-[var(--glass-border)]">
-        <div className="max-w-lg mx-auto px-4 h-14 flex items-center justify-between">
+    <div className="min-h-screen pb-44 lg:pb-16">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 glass border-b border-[var(--glass-border)]">
+        <div className={cn(pageShellClass, "h-14 flex items-center justify-between")}>
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => router.back()}
@@ -210,326 +257,350 @@ export default function ProductPageClient({ id }: { id: string }) {
           </div>
         </div>
       </div>
+      <div className="hidden lg:block">
+        <TopBar />
+      </div>
 
-      <div className="max-w-lg mx-auto">
-        {/* Hero Image */}
-        <button
-          type="button"
-          onClick={() => setLightboxOpen(true)}
-          className="relative h-80 w-full pt-14 text-left"
-          aria-label="View full product image"
-        >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={selectedImage}
-              initial={{ opacity: 0, scale: 1.04 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
-              className="absolute inset-0"
-            >
-              <RemoteImage
-                src={product.images[selectedImage]}
-                alt={product.name}
-                fill
-                width={1200}
-                className="object-cover"
-              />
-            </motion.div>
-          </AnimatePresence>
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[var(--background)] via-transparent to-transparent" />
-
-          {/* Badge */}
-          {product.badge && (
-            <div className="absolute top-[72px] left-4">
-              <span
-                className="px-3 py-1 rounded-full text-xs font-bold text-white uppercase"
-                style={{
-                  background: product.badge === "sale" ? "#ef4444" : product.badge === "hot" ? "#f97316" : product.badge === "limited" ? "#f59e0b" : "#2563eb",
-                }}
-              >
-                {product.badge === "sale" && product.originalPrice
-                  ? `${getDiscountPercent(product.price, product.originalPrice)}% Off`
-                  : product.badge}
-              </span>
-            </div>
-          )}
-        </button>
-
-        {/* Thumbnail Strip */}
-        {product.images.length > 1 && (
-          <div className="flex gap-2 px-4 -mt-2 mb-2">
-            {product.images.map((img, i) => (
-              <motion.button
-                key={i}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setSelectedImage(i)}
-                className={cn(
-                  "relative w-16 h-16 rounded-xl overflow-hidden border-2 transition-all duration-200",
-                  selectedImage === i ? "border-blue-500" : "border-transparent opacity-60"
-                )}
-              >
-                <RemoteImage src={img} alt={`${product.name} ${i + 1}`} fill width={160} className="object-cover" />
-              </motion.button>
-            ))}
-          </div>
-        )}
-
-        {/* Product Info */}
-        <div className="px-4 pt-2">
-          {/* Brand & Name */}
-          <p className="text-[11px] font-semibold label-accent uppercase tracking-widest mb-1">
-            {product.brand}
-          </p>
-          <h1 className="text-2xl font-black mb-2 leading-tight" style={{ color: "var(--foreground)" }}>
-            {product.name}
-          </h1>
-
-          {/* Rating */}
-          <div className="flex items-center gap-2 mb-4">
-            <div className="flex items-center gap-0.5">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star
-                  key={i}
-                  size={13}
-                  className={i < Math.floor(product.rating) ? "fill-amber-400 text-amber-400" : "text-gray-300"}
-                />
-              ))}
-            </div>
-            <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-              {product.rating}
-            </span>
-            <span className="text-xs" style={{ color: "var(--muted)" }}>
-              ({product.reviews} reviews)
-            </span>
-          </div>
-
-          {/* Price */}
-          <div className="flex items-center gap-3 mb-5">
-            <span className="text-3xl font-black" style={{ color: "var(--foreground)" }}>
-              {formatPrice(product.price)}
-            </span>
-            {product.originalPrice && (
-              <>
-                <span className="text-lg line-through" style={{ color: "var(--muted)" }}>
-                  {formatPrice(product.originalPrice)}
-                </span>
-                <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white bg-rose-500">
-                  Save {formatPrice(product.originalPrice - product.price)}
-                </span>
-              </>
-            )}
-          </div>
-
-          {/* Color Options */}
-          <div className="mb-5">
-            <p className="text-xs font-semibold mb-2" style={{ color: "var(--muted)" }}>
-              Color — <span style={{ color: "var(--foreground)" }}>Option {resolvedColorIndex + 1}</span>
-            </p>
-            <div className="flex gap-3">
-              {product.colors.map((color, i) => {
-                const colorInStock = product.variants.some(
-                  (variant) => variant.color === color && variant.stock > 0,
-                );
-                return (
-                  <motion.button
-                    key={i}
-                    whileTap={{ scale: 0.85 }}
-                    onClick={() => handleColorSelect(i)}
-                    disabled={!colorInStock}
-                    className={cn(
-                      "w-9 h-9 rounded-full border-2 transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-30",
-                      resolvedColorIndex === i
-                        ? "border-blue-500 scale-110"
-                        : "border-transparent",
-                    )}
-                    style={{ backgroundColor: color }}
-                    aria-label={`Color option ${i + 1}${colorInStock ? "" : " — out of stock"}`}
-                  />
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Size Options */}
-          <div className="mb-5">
-            <p className="text-xs font-semibold mb-2" style={{ color: "var(--muted)" }}>
-              Size — <span style={{ color: "var(--foreground)" }}>{resolvedSize}</span>
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {product.sizes.map((size) => {
-                const sizeStock =
-                  product.variants.find(
-                    (variant) =>
-                      variant.color === selectedColorValue &&
-                      variant.size === size,
-                  )?.stock ?? 0;
-                return (
-                  <motion.button
-                    key={size}
-                    whileTap={{ scale: 0.92 }}
-                    onClick={() => {
-                      setSelectedSize(size);
-                      setQty(1);
-                    }}
-                    disabled={sizeStock <= 0}
-                    className={cn(
-                      "min-w-10 px-3 h-9 rounded-xl text-xs font-bold transition-all duration-200 no-select disabled:cursor-not-allowed disabled:line-through disabled:opacity-35",
-                      resolvedSize === size
-                        ? "filter-chip-active"
-                        : "filter-chip-inactive",
-                    )}
-                  >
-                    {size}
-                  </motion.button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Quantity & Stock */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-1">
-              <p className="text-xs mr-3" style={{ color: "var(--muted)" }}>Qty</p>
-              <motion.button
-                whileTap={{ scale: 0.85 }}
-                onClick={() => setQty(Math.max(1, qty - 1))}
-                className="w-8 h-8 rounded-full flex items-center justify-center no-select"
-                style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-              >
-                <span style={{ color: "var(--foreground)" }} className="text-lg font-bold leading-none">−</span>
-              </motion.button>
-              <span className="w-8 text-center font-bold text-sm" style={{ color: "var(--foreground)" }}>
-                {qty}
-              </span>
-              <motion.button
-                whileTap={{ scale: 0.85 }}
-                onClick={() => setQty(Math.min(selectedStock, qty + 1))}
-                disabled={isSoldOut || qty >= selectedStock}
-                className="w-8 h-8 rounded-full flex items-center justify-center no-select"
-                style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-              >
-                <span style={{ color: "var(--foreground)" }} className="text-lg font-bold leading-none">+</span>
-              </motion.button>
-            </div>
-            <span
-              className={cn(
-                "text-xs font-semibold px-2.5 py-1 rounded-full",
-                selectedStock === 0
-                  ? "text-rose-600 bg-rose-100 dark:bg-rose-950"
-                  : selectedStock <= 5
-                    ? "text-orange-600 bg-orange-100 dark:bg-orange-950"
-                    : "text-emerald-600 bg-emerald-100 dark:bg-emerald-950"
-              )}
-            >
-              {selectedStock === 0
-                ? "Out of stock"
-                : selectedStock <= 5
-                  ? `Only ${selectedStock} left!`
-                  : `${selectedStock} in stock`}
-            </span>
-          </div>
-
-          {/* Features */}
-          <div className="grid grid-cols-2 gap-2 mb-6">
-            {product.features.map((feature, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
-                style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-              >
-                <div className="w-5 h-5 rounded-full flex items-center justify-center flex-none" style={{ background: "var(--primary-muted)" }}>
-                  <Check size={10} className="label-accent" />
-                </div>
-                <span className="text-[11px] font-medium leading-tight" style={{ color: "var(--foreground)" }}>
-                  {feature}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Description */}
-          <div
-            className="mb-6 rounded-2xl overflow-hidden"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-          >
+      <PageShell className="lg:pt-24">
+        <div className="lg:grid lg:grid-cols-2 lg:gap-10 lg:items-start">
+          <div className="-mx-4 lg:mx-0">
             <button
-              onClick={() => setDescExpanded(!descExpanded)}
-              className="w-full flex items-center justify-between px-4 py-3.5 no-select"
+              type="button"
+              onClick={() => setLightboxOpen(true)}
+              className="relative h-80 w-full pt-14 lg:pt-0 lg:h-auto lg:aspect-[3/4] lg:rounded-3xl lg:overflow-hidden text-left"
+              aria-label="View full product image"
             >
-              <span className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>
-                Description
-              </span>
-              {descExpanded ? (
-                <ChevronUp size={16} style={{ color: "var(--muted)" }} />
-              ) : (
-                <ChevronDown size={16} style={{ color: "var(--muted)" }} />
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={selectedImage}
+                  initial={{ opacity: 0, scale: 1.04 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+                  className="absolute inset-0"
+                >
+                  <RemoteImage
+                    src={product.images[selectedImage]}
+                    alt={product.name}
+                    fill
+                    width={1200}
+                    className="object-cover"
+                  />
+                </motion.div>
+              </AnimatePresence>
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[var(--background)] via-transparent to-transparent lg:hidden" />
+
+              {product.badge && (
+                <div className="absolute top-[72px] left-4 lg:top-4">
+                  <span
+                    className="px-3 py-1 rounded-full text-xs font-bold text-white uppercase"
+                    style={{
+                      background: product.badge === "sale" ? "#ef4444" : product.badge === "hot" ? "#f97316" : product.badge === "limited" ? "#f59e0b" : "#2563eb",
+                    }}
+                  >
+                    {product.badge === "sale" && product.originalPrice
+                      ? `${getDiscountPercent(product.price, product.originalPrice)}% Off`
+                      : product.badge}
+                  </span>
+                </div>
               )}
             </button>
-            <AnimatePresence>
-              {descExpanded && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="overflow-hidden"
-                >
-                  <p className="px-4 pb-4 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-                    {product.description}
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            {!descExpanded && (
-              <p className="px-4 pb-4 text-sm leading-relaxed line-clamp-2" style={{ color: "var(--muted)" }}>
-                {product.description}
-              </p>
+
+            {product.images.length > 1 && (
+              <div className="flex gap-2 px-4 lg:px-0 mt-3 mb-2 lg:mt-4">
+                {product.images.map((img, i) => (
+                  <motion.button
+                    key={i}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setSelectedImage(i)}
+                    className={cn(
+                      "relative w-16 h-16 lg:w-20 lg:h-20 rounded-xl overflow-hidden border-2 transition-all duration-200",
+                      selectedImage === i ? "border-blue-500" : "border-transparent opacity-60"
+                    )}
+                  >
+                    <RemoteImage src={img} alt={`${product.name} ${i + 1}`} fill width={160} className="object-cover" />
+                  </motion.button>
+                ))}
+              </div>
             )}
           </div>
 
-          {/* Trust Badges */}
-          <div className="grid grid-cols-3 gap-2 mb-8">
-            {[
-              { icon: Package, label: "Free Shipping", sub: `Orders ${formatPrice(freeShippingThreshold)}+` },
-              { icon: Zap, label: "Fast Delivery", sub: "2-3 days" },
-              { icon: Shield, label: "1 Year Warranty", sub: "Guaranteed" },
-            ].map(({ icon: Icon, label, sub }) => (
-              <div key={label} className="flex flex-col items-center text-center gap-1 p-3 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-                <Icon size={18} className="label-accent" />
-                <p className="text-[10px] font-bold leading-tight" style={{ color: "var(--foreground)" }}>{label}</p>
-                <p className="text-[9px]" style={{ color: "var(--muted)" }}>{sub}</p>
+          <div className="px-0 pt-2 lg:sticky lg:top-24">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="hidden lg:inline-flex items-center gap-2 mb-4 text-sm font-semibold text-muted hover:text-[var(--foreground)] transition-colors"
+            >
+              <ArrowLeft size={16} />
+              Back
+            </button>
+            <p className="text-[11px] lg:text-xs font-semibold label-accent uppercase tracking-widest mb-1">
+              {product.brand}
+            </p>
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="text-2xl lg:text-4xl font-black mb-2 leading-tight" style={{ color: "var(--foreground)" }}>
+                {product.name}
+              </h1>
+              <div className="hidden lg:flex items-center gap-2 shrink-0">
+                <WishlistButton productId={product.id} />
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  className="w-10 h-10 rounded-full glass flex items-center justify-center no-select"
+                >
+                  <Share2 size={16} style={{ color: "var(--foreground)" }} />
+                </motion.button>
               </div>
-            ))}
+            </div>
+
+            <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star
+                    key={i}
+                    size={13}
+                    className={i < Math.floor(product.rating) ? "fill-amber-400 text-amber-400" : "text-gray-300"}
+                  />
+                ))}
+              </div>
+              <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                {product.rating}
+              </span>
+              <span className="text-xs" style={{ color: "var(--muted)" }}>
+                ({product.reviews} reviews)
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3 mb-5">
+              <span className="text-3xl lg:text-4xl font-black" style={{ color: "var(--foreground)" }}>
+                {formatPrice(product.price)}
+              </span>
+              {product.originalPrice && (
+                <>
+                  <span className="text-lg line-through" style={{ color: "var(--muted)" }}>
+                    {formatPrice(product.originalPrice)}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white bg-rose-500">
+                    Save {formatPrice(product.originalPrice - product.price)}
+                  </span>
+                </>
+              )}
+            </div>
+
+            <div className="mb-5">
+              <p className="text-xs font-semibold mb-2" style={{ color: "var(--muted)" }}>
+                Color — <span style={{ color: "var(--foreground)" }}>Option {resolvedColorIndex + 1}</span>
+              </p>
+              <div className="flex gap-3">
+                {product.colors.map((color, i) => {
+                  const colorInStock = product.variants.some(
+                    (variant) => variant.color === color && variant.stock > 0,
+                  );
+                  return (
+                    <motion.button
+                      key={i}
+                      whileTap={{ scale: 0.85 }}
+                      onClick={() => handleColorSelect(i)}
+                      disabled={!colorInStock}
+                      className={cn(
+                        "w-9 h-9 rounded-full border-2 transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-30",
+                        resolvedColorIndex === i
+                          ? "border-blue-500 scale-110"
+                          : "border-transparent",
+                      )}
+                      style={{ backgroundColor: color }}
+                      aria-label={`Color option ${i + 1}${colorInStock ? "" : " — out of stock"}`}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mb-5">
+              <p className="text-xs font-semibold mb-2" style={{ color: "var(--muted)" }}>
+                Size — <span style={{ color: "var(--foreground)" }}>{resolvedSize}</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {product.sizes.map((size) => {
+                  const sizeStock =
+                    product.variants.find(
+                      (variant) =>
+                        variant.color === selectedColorValue &&
+                        variant.size === size,
+                    )?.stock ?? 0;
+                  return (
+                    <motion.button
+                      key={size}
+                      whileTap={{ scale: 0.92 }}
+                      onClick={() => {
+                        setSelectedSize(size);
+                        setQty(1);
+                      }}
+                      disabled={sizeStock <= 0}
+                      className={cn(
+                        "min-w-10 px-3 h-9 rounded-xl text-xs font-bold transition-all duration-200 no-select disabled:cursor-not-allowed disabled:line-through disabled:opacity-35",
+                        resolvedSize === size
+                          ? "filter-chip-active"
+                          : "filter-chip-inactive",
+                      )}
+                    >
+                      {size}
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-1">
+                <p className="text-xs mr-3" style={{ color: "var(--muted)" }}>Qty</p>
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => setQty(Math.max(1, qty - 1))}
+                  className="w-8 h-8 rounded-full flex items-center justify-center no-select"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                >
+                  <span style={{ color: "var(--foreground)" }} className="text-lg font-bold leading-none">−</span>
+                </motion.button>
+                <span className="w-8 text-center font-bold text-sm" style={{ color: "var(--foreground)" }}>
+                  {qty}
+                </span>
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => setQty(Math.min(selectedStock, qty + 1))}
+                  disabled={isSoldOut || qty >= selectedStock}
+                  className="w-8 h-8 rounded-full flex items-center justify-center no-select"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                >
+                  <span style={{ color: "var(--foreground)" }} className="text-lg font-bold leading-none">+</span>
+                </motion.button>
+              </div>
+              <span
+                className={cn(
+                  "text-xs font-semibold px-2.5 py-1 rounded-full",
+                  selectedStock === 0
+                    ? "text-rose-600 bg-rose-100 dark:bg-rose-950"
+                    : selectedStock <= 5
+                      ? "text-orange-600 bg-orange-100 dark:bg-orange-950"
+                      : "text-emerald-600 bg-emerald-100 dark:bg-emerald-950"
+                )}
+              >
+                {selectedStock === 0
+                  ? "Out of stock"
+                  : selectedStock <= 5
+                    ? `Only ${selectedStock} left!`
+                    : `${selectedStock} in stock`}
+              </span>
+            </div>
+
+            <div className="hidden lg:flex gap-3 mb-6">
+              <WishlistButton
+                productId={product.id}
+                variant="plain"
+                iconSize={20}
+                className="flex-none h-14 w-14 rounded-2xl border border-[var(--border)] bg-[var(--surface)]"
+              />
+              <AddToCartButton />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mb-6">
+              {product.features.map((feature, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                >
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center flex-none" style={{ background: "var(--primary-muted)" }}>
+                    <Check size={10} className="label-accent" />
+                  </div>
+                  <span className="text-[11px] lg:text-xs font-medium leading-tight" style={{ color: "var(--foreground)" }}>
+                    {feature}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div
+              className="mb-6 rounded-2xl overflow-hidden"
+              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+            >
+              <button
+                onClick={() => setDescExpanded(!descExpanded)}
+                className="w-full flex items-center justify-between px-4 py-3.5 no-select"
+              >
+                <span className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>
+                  Description
+                </span>
+                {descExpanded ? (
+                  <ChevronUp size={16} style={{ color: "var(--muted)" }} />
+                ) : (
+                  <ChevronDown size={16} style={{ color: "var(--muted)" }} />
+                )}
+              </button>
+              <AnimatePresence>
+                {descExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="overflow-hidden"
+                  >
+                    <p className="px-4 pb-4 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                      {product.description}
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              {!descExpanded && (
+                <p className="px-4 pb-4 text-sm leading-relaxed line-clamp-2" style={{ color: "var(--muted)" }}>
+                  {product.description}
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 mb-8">
+              {[
+                { icon: Package, label: "Free Shipping", sub: `Orders ${formatPrice(freeShippingThreshold)}+` },
+                { icon: Zap, label: "Fast Delivery", sub: "2-3 days" },
+                { icon: Shield, label: "1 Year Warranty", sub: "Guaranteed" },
+              ].map(({ icon: Icon, label, sub }) => (
+                <div key={label} className="flex flex-col items-center text-center gap-1 p-3 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                  <Icon size={18} className="label-accent" />
+                  <p className="text-[10px] lg:text-xs font-bold leading-tight" style={{ color: "var(--foreground)" }}>{label}</p>
+                  <p className="text-[9px] lg:text-[11px]" style={{ color: "var(--muted)" }}>{sub}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Similar Products Section */}
         {similarProducts.length > 0 && (
-          <div className="px-4 mb-6">
-            <div className="mb-4">
-              <p className="text-[11px] font-semibold label-accent uppercase tracking-widest mb-0.5">
+          <div className="mb-6 lg:mt-8">
+            <div className="mb-4 lg:mb-6">
+              <p className="text-[11px] lg:text-xs font-semibold label-accent uppercase tracking-widest mb-0.5">
                 You May Also Like
               </p>
-              <h2 className="text-xl font-bold" style={{ color: "var(--foreground)" }}>
+              <h2 className="text-xl lg:text-3xl font-bold" style={{ color: "var(--foreground)" }}>
                 Similar Products
               </h2>
             </div>
-            <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory">
+            <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory lg:hidden">
               {similarProducts.map((p, i) => (
                 <div key={p.id} className="flex-none w-44 snap-start">
                   <ProductCard product={p} index={i} />
                 </div>
               ))}
             </div>
+            <div className={cn("hidden lg:grid", productGridClass)}>
+              {similarProducts.map((p, i) => (
+                <ProductCard key={p.id} product={p} index={i} />
+              ))}
+            </div>
           </div>
         )}
-      </div>
+      </PageShell>
 
-      {/* Fixed Bottom CTA */}
-      <div
-        className="fixed bottom-[5.75rem] left-0 right-0 z-[45] px-4"
-      >
+      <div className="fixed bottom-[5.75rem] left-0 right-0 z-[45] px-4 lg:hidden">
         <div className="max-w-lg mx-auto flex gap-3">
           <WishlistButton
             productId={product.id}
@@ -537,54 +608,10 @@ export default function ProductPageClient({ id }: { id: string }) {
             iconSize={20}
             className="flex-none h-14 w-14 rounded-2xl border border-[var(--border)] bg-[var(--surface)]"
           />
-
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={handleAddToCart}
-            disabled={isSoldOut}
-            className="flex-1 h-14 rounded-2xl flex items-center justify-center gap-2.5 text-white font-bold no-select overflow-hidden relative btn-gradient disabled:cursor-not-allowed disabled:opacity-50"
-            style={{
-              background: addedToCart
-                ? "linear-gradient(135deg, #10b981, #059669)"
-                : undefined,
-              boxShadow: addedToCart
-                ? "0 4px 20px rgba(16,185,129,0.4)"
-                : undefined,
-              transition: "background 0.4s ease, box-shadow 0.4s ease",
-            }}
-          >
-            <AnimatePresence mode="wait">
-              {addedToCart ? (
-                <motion.div
-                  key="added"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="flex items-center gap-2"
-                >
-                  <Check size={18} />
-                  Added to Cart!
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="add"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="flex items-center gap-2"
-                >
-                  <ShoppingCart size={18} />
-                  {isSoldOut
-                    ? "Selected variant unavailable"
-                    : `Add to Cart · ${formatPrice(product.price * qty)}`}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.button>
+          <AddToCartButton />
         </div>
       </div>
 
-      {/* Full-image lightbox */}
       <AnimatePresence>
         {lightboxOpen && (
           <motion.div
@@ -638,7 +665,7 @@ export default function ProductPageClient({ id }: { id: string }) {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.2 }}
-                className="relative h-full w-full max-w-3xl"
+                className="relative h-full w-full max-w-3xl lg:max-w-5xl"
                 onClick={(event) => event.stopPropagation()}
               >
                 <RemoteImage

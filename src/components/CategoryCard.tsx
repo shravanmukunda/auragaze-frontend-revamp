@@ -60,14 +60,14 @@ export default function CategoryCard({ category, index }: CategoryCardProps) {
       className="group cursor-pointer"
     >
       <Link href={`/categories/${category.slug}`}>
-        <div className="relative overflow-hidden rounded-2xl h-44 md:h-52">
+        <div className="relative overflow-hidden rounded-2xl h-44 md:h-52 lg:h-64">
           {/* Background Image */}
           <Image
             src={category.image}
             alt={category.name}
             fill
             className="object-cover transition-transform duration-700 group-hover:scale-110"
-            sizes="(max-width: 768px) 50vw, 33vw"
+            sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
           />
 
           {/* Gradient Overlay */}

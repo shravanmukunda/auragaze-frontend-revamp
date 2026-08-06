@@ -19,8 +19,8 @@ export default function AuthCard({
   children,
 }: AuthCardProps) {
   return (
-    <main className="min-h-screen px-4 py-8 pb-32">
-      <div className="mx-auto max-w-lg">
+    <main className="min-h-screen px-4 py-8 pb-32 lg:pb-16 lg:pt-16">
+      <div className="mx-auto w-full max-w-md">
         <Link
           href="/"
           className="mb-10 inline-flex items-center gap-2 text-sm font-semibold text-muted"

@@ -120,7 +120,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
             duration: 0.6,
             ease: [0.22, 1, 0.36, 1],
           }}
-          className="mb-6 relative w-[85vw] max-w-[280px] h-[180px] sm:max-w-[400px] sm:h-[260px] md:max-w-[500px] md:h-[320px]"
+          className="mb-6 relative w-[85vw] max-w-[280px] h-[180px] sm:max-w-[400px] sm:h-[260px] md:max-w-[500px] md:h-[320px] lg:max-w-[640px] lg:h-[400px]"
         >
           <Image
             src="/logo/logo.svg"

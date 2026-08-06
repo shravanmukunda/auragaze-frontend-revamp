@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { LoaderCircle, Search } from "lucide-react";
 import TopBar from "@/components/TopBar";
 import ProductCard from "@/components/ProductCard";
+import PageShell, { productGridClass } from "@/components/PageShell";
 import type { StorefrontProduct } from "@/types/product";
 
 function SearchResults() {
@@ -52,8 +53,8 @@ function SearchResults() {
     <div className="min-h-screen pb-6">
       <TopBar title="Search" />
 
-      <div className="mx-auto max-w-lg px-4 pt-16">
-        <label className="relative mb-5 block">
+      <PageShell className="pt-16 lg:pt-24">
+        <label className="relative mb-5 lg:mb-8 block lg:max-w-xl">
           <Search
             size={16}
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
@@ -62,7 +63,7 @@ function SearchResults() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search tees, brands, categories"
-            className="w-full rounded-xl border border-(--border) bg-background py-3 pl-9 pr-4 text-sm outline-none transition focus:border-blue-500"
+            className="w-full rounded-xl border border-(--border) bg-background py-3 lg:py-3.5 pl-9 pr-4 text-sm lg:text-base outline-none transition focus:border-blue-500"
             autoFocus
           />
         </label>
@@ -81,13 +82,13 @@ function SearchResults() {
             No products found for &ldquo;{query.trim()}&rdquo;.
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className={productGridClass}>
             {results.map((product, index) => (
               <ProductCard key={product.id} product={product} index={index} />
             ))}
           </div>
         )}
-      </div>
+      </PageShell>
     </div>
   );
 }

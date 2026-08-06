@@ -8,6 +8,7 @@ import { useSession } from "next-auth/react";
 import { CreditCard, LoaderCircle, MapPin, Package, Truck } from "lucide-react";
 import { toast } from "sonner";
 import TopBar from "@/components/TopBar";
+import PageShell from "@/components/PageShell";
 import PromoCodeForm from "@/components/PromoCodeForm";
 import { useCart } from "@/context/CartContext";
 import { useShippingSettings } from "@/context/ShippingSettingsContext";
@@ -309,10 +310,10 @@ export default function CheckoutPage() {
         : `Place order · ${formatPrice(total)}`;
 
   return (
-    <div className="min-h-screen pb-32">
+    <div className="min-h-screen pb-32 lg:pb-16">
       <TopBar title="Checkout" />
 
-      <div className="mx-auto max-w-lg px-4 pt-16">
+      <PageShell className="pt-16 lg:pt-24">
         {!hasItems ? (
           <div className="py-20 text-center">
             <p className="mb-4 text-sm text-muted">Your cart is empty.</p>
@@ -321,8 +322,9 @@ export default function CheckoutPage() {
             </Link>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <section className="surface-card rounded-2xl p-4">
+          <form onSubmit={handleSubmit} className="space-y-5 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-8 lg:space-y-0 lg:items-start">
+            <div className="space-y-5">
+            <section className="surface-card rounded-2xl p-4 lg:p-5">
               <div className="mb-4 flex items-center gap-2">
                 <MapPin size={18} className="label-accent" />
                 <h2 className="font-bold text-sm">Delivery address</h2>
@@ -490,54 +492,10 @@ export default function CheckoutPage() {
               </div>
             </section>
 
-            <section className="surface-card rounded-2xl p-4">
-              <div className="mb-4 flex items-center gap-2">
-                <Package size={18} className="label-accent" />
-                <h2 className="font-bold text-sm">Order items</h2>
-              </div>
-              <div className="space-y-3">
-                {items.map((item) => (
-                  <div key={item.variantId} className="flex gap-3">
-                    <div className="relative h-16 w-14 flex-none overflow-hidden rounded-xl">
-                      <RemoteImage
-                        src={item.image}
-                        alt={item.productName}
-                        fill
-                        width={160}
-                        className="object-cover"
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 text-sm font-semibold">{item.productName}</p>
-                      <p className="text-xs text-muted">
-                        Size {item.size} · Qty {item.quantity}
-                      </p>
-                    </div>
-                    <p className="text-sm font-bold">
-                      {formatPrice(item.price * item.quantity)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="surface-card rounded-2xl p-4">
-              <h2 className="mb-3 font-bold text-sm">Promo code</h2>
-              <PromoCodeForm
-                subtotal={subtotal}
-                compact
-                withinForm
-                onApplied={(promo) => {
-                  setPromoDiscount(promo?.discount ?? 0);
-                  setPromoCode(promo?.code ?? null);
-                }}
-              />
-            </section>
-
-            <section className="surface-card rounded-2xl p-4">
+            <section className="surface-card rounded-2xl p-4 lg:p-5">
               <div className="mb-4 flex items-center gap-2">
                 <Truck size={18} className="label-accent" />
-                <h2 className="font-bold text-sm">Payment & shipping</h2>
+                <h2 className="font-bold text-sm">Payment method</h2>
               </div>
               <div className="space-y-2">
                 {razorpayEnabled ? (
@@ -574,7 +532,78 @@ export default function CheckoutPage() {
                   <p className="text-xs text-muted">Pay when your order arrives.</p>
                 </button>
               </div>
-              <div className="mt-4 space-y-2 text-sm">
+            </section>
+
+            {error && (
+              <p
+                role="alert"
+                className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-500 lg:hidden"
+              >
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={disabled}
+              className="btn-gradient flex h-14 w-full items-center justify-center gap-2 rounded-2xl text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60 lg:hidden"
+            >
+              {submitting && <LoaderCircle size={18} className="animate-spin" />}
+              {submitLabel}
+            </button>
+            </div>
+
+            <div className="space-y-5 lg:sticky lg:top-24">
+            <section className="surface-card rounded-2xl p-4 lg:p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <Package size={18} className="label-accent" />
+                <h2 className="font-bold text-sm">Order items</h2>
+              </div>
+              <div className="space-y-3">
+                {items.map((item) => (
+                  <div key={item.variantId} className="flex gap-3">
+                    <div className="relative h-16 w-14 flex-none overflow-hidden rounded-xl">
+                      <RemoteImage
+                        src={item.image}
+                        alt={item.productName}
+                        fill
+                        width={160}
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-2 text-sm font-semibold">{item.productName}</p>
+                      <p className="text-xs text-muted">
+                        Size {item.size} · Qty {item.quantity}
+                      </p>
+                    </div>
+                    <p className="text-sm font-bold">
+                      {formatPrice(item.price * item.quantity)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="surface-card rounded-2xl p-4 lg:p-5">
+              <h2 className="mb-3 font-bold text-sm">Promo code</h2>
+              <PromoCodeForm
+                subtotal={subtotal}
+                compact
+                withinForm
+                onApplied={(promo) => {
+                  setPromoDiscount(promo?.discount ?? 0);
+                  setPromoCode(promo?.code ?? null);
+                }}
+              />
+            </section>
+
+            <section className="surface-card rounded-2xl p-4 lg:p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <Truck size={18} className="label-accent" />
+                <h2 className="font-bold text-sm">Payment & shipping</h2>
+              </div>
+              <div className="space-y-2 text-sm">
                 <div className="flex justify-between text-muted">
                   <span>Subtotal</span>
                   <span>{formatPrice(subtotal)}</span>
@@ -602,7 +631,7 @@ export default function CheckoutPage() {
             {error && (
               <p
                 role="alert"
-                className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-500"
+                className="hidden rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-500 lg:block"
               >
                 {error}
               </p>
@@ -611,14 +640,15 @@ export default function CheckoutPage() {
             <button
               type="submit"
               disabled={disabled}
-              className="btn-gradient flex h-14 w-full items-center justify-center gap-2 rounded-2xl text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn-gradient hidden h-14 w-full items-center justify-center gap-2 rounded-2xl text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60 lg:flex"
             >
               {submitting && <LoaderCircle size={18} className="animate-spin" />}
               {submitLabel}
             </button>
+            </div>
           </form>
         )}
-      </div>
+      </PageShell>
     </div>
   );
 }

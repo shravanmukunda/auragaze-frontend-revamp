@@ -1,6 +1,6 @@
 # AURAGAZE
 
-A mobile-first t-shirt storefront built with Next.js 16, Prisma, PostgreSQL,
+A responsive t-shirt storefront built with Next.js 16, Prisma, PostgreSQL,
 and NextAuth. Product requirements and implementation sequencing live in
 [`docs/PRD.md`](docs/PRD.md) and [`docs/SPRINT_PLAN.md`](docs/SPRINT_PLAN.md).
 

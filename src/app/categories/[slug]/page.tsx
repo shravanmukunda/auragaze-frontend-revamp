@@ -5,8 +5,11 @@ import { use } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, LoaderCircle, RotateCcw } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
+import TopBar from "@/components/TopBar";
+import PageShell, { pageShellClass, productGridClass } from "@/components/PageShell";
 import { categories } from "@/lib/data";
 import { useCatalog } from "@/context/CatalogContext";
+import { cn } from "@/lib/utils";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -24,10 +27,9 @@ export default function CategoryDetailPage({ params }: PageProps) {
   );
 
   return (
-    <div className="min-h-screen pb-6">
-      {/* Header */}
-      <div className="fixed top-0 left-0 right-0 z-40 glass border-b border-[var(--glass-border)]">
-        <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
+    <div className="min-h-screen pb-6 lg:pb-12">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 glass border-b border-[var(--glass-border)]">
+        <div className={cn(pageShellClass, "h-14 flex items-center gap-3")}>
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => router.back()}
@@ -40,14 +42,28 @@ export default function CategoryDetailPage({ params }: PageProps) {
           </span>
         </div>
       </div>
+      <div className="hidden lg:block">
+        <TopBar />
+      </div>
 
-      <div className="pt-20 px-4 max-w-lg mx-auto">
+      <PageShell className="pt-20 lg:pt-24">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-4"
+          className="mb-4 lg:mb-8"
         >
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="hidden lg:inline-flex items-center gap-2 mb-4 text-sm font-semibold text-muted hover:text-[var(--foreground)] transition-colors"
+          >
+            <ArrowLeft size={16} />
+            Back
+          </button>
+          <h1 className="hidden lg:block text-4xl font-black mb-2" style={{ color: "var(--foreground)" }}>
+            {category?.name ?? slug}
+          </h1>
+          <p className="text-sm lg:text-base" style={{ color: "var(--muted)" }}>
             {categoryProducts.length} products
           </p>
         </motion.div>
@@ -69,7 +85,7 @@ export default function CategoryDetailPage({ params }: PageProps) {
             </button>
           </div>
         ) : categoryProducts.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3">
+          <div className={productGridClass}>
             {categoryProducts.map((product, i) => (
               <ProductCard key={product.id} product={product} index={i} />
             ))}
@@ -84,7 +100,7 @@ export default function CategoryDetailPage({ params }: PageProps) {
             </p>
           </div>
         )}
-      </div>
+      </PageShell>
     </div>
   );
 }

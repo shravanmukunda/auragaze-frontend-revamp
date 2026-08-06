@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, LoaderCircle, Package } from "lucide-react";
 import TopBar from "@/components/TopBar";
+import PageShell from "@/components/PageShell";
 import { orderStatusLabel, orderStatusTone } from "@/lib/order-status";
 import { formatPrice, cn } from "@/lib/utils";
 import type { OrderSummary } from "@/types/order";
@@ -42,7 +43,7 @@ export default function OrdersPage() {
     <div className="min-h-screen pb-6">
       <TopBar title="My Orders" />
 
-      <div className="mx-auto max-w-lg px-4 pt-16">
+      <PageShell className="pt-16 lg:pt-24">
         {loading ? (
           <div className="flex justify-center py-20">
             <LoaderCircle className="animate-spin label-accent" />
@@ -63,10 +64,10 @@ export default function OrdersPage() {
             </Link>
           </div>
         ) : (
-          <div className="flex flex-col gap-3 pt-4">
+          <div className="flex flex-col gap-3 pt-4 lg:grid lg:grid-cols-2 lg:gap-4">
             {orders.map((order) => (
               <Link key={order.id} href={`/orders/${order.id}`}>
-                <div className="surface-card rounded-2xl p-4">
+                <div className="surface-card rounded-2xl p-4 lg:p-5 h-full">
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div>
                       <p className="font-mono text-[11px] text-muted">{order.id.slice(0, 12)}…</p>
@@ -100,7 +101,7 @@ export default function OrdersPage() {
             ))}
           </div>
         )}
-      </div>
+      </PageShell>
     </div>
   );
 }

@@ -1,10 +1,11 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
-import { LoaderCircle, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown, LoaderCircle, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import TopBar from "@/components/TopBar";
 import ProductCard from "@/components/ProductCard";
+import PageShell, { productGridClass } from "@/components/PageShell";
 import { shopFilters } from "@/lib/data";
 import { useCatalog } from "@/context/CatalogContext";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,8 @@ export default function ShopPage() {
   const [activeFilter, setActiveFilter] = useState("All");
   const [activeSort, setActiveSort] = useState("Featured");
   const [showSortSheet, setShowSortSheet] = useState(false);
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
 
   const filtered =
     activeFilter === "All"
@@ -39,13 +42,23 @@ export default function ShopPage() {
     }
   });
 
+  useEffect(() => {
+    if (!showSortMenu) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
+        setShowSortMenu(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [showSortMenu]);
+
   return (
-    <div className="min-h-screen pb-6">
+    <div className="min-h-screen pb-6 lg:pb-12">
       <TopBar title="Shop" />
 
-      <div className="pt-16 max-w-lg mx-auto">
-        {/* Filter Chips */}
-        <div className="flex gap-2 overflow-x-auto pb-1 px-4 pt-4 scrollbar-hide snap-x">
+      <PageShell className="pt-16 lg:pt-24">
+        <div className="flex gap-2 overflow-x-auto pb-1 pt-4 scrollbar-hide snap-x lg:flex-wrap lg:overflow-visible lg:snap-none">
           {filters.map((filter) => (
             <motion.button
               key={filter}
@@ -61,22 +74,59 @@ export default function ShopPage() {
           ))}
         </div>
 
-        {/* Sort & Count Bar */}
-        <div className="flex items-center justify-between px-4 py-3">
-          <p className="text-xs" style={{ color: "var(--muted)" }}>
+        <div className="flex items-center justify-between py-3 lg:py-5">
+          <p className="text-xs lg:text-sm" style={{ color: "var(--muted)" }}>
             <span className="font-semibold" style={{ color: "var(--foreground)" }}>{sorted.length}</span> products
           </p>
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowSortSheet(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full filter-chip-inactive text-xs font-semibold no-select"
+            className="flex lg:hidden items-center gap-1.5 px-3 py-1.5 rounded-full filter-chip-inactive text-xs font-semibold no-select"
           >
             <SlidersHorizontal size={12} />
             {activeSort}
           </motion.button>
+          <div className="relative hidden lg:block" ref={sortMenuRef}>
+            <button
+              type="button"
+              onClick={() => setShowSortMenu((open) => !open)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full filter-chip-inactive text-sm font-semibold no-select"
+            >
+              <SlidersHorizontal size={14} />
+              {activeSort}
+              <ChevronDown size={14} className={cn("transition-transform", showSortMenu && "rotate-180")} />
+            </button>
+            {showSortMenu && (
+              <div
+                className="absolute right-0 top-full z-20 mt-2 w-56 overflow-hidden rounded-2xl p-1.5"
+                style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--card-shadow)" }}
+              >
+                {sortOptions.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => {
+                      setActiveSort(option);
+                      setShowSortMenu(false);
+                    }}
+                    className={cn(
+                      "w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors",
+                      activeSort === option
+                        ? "text-[var(--label-accent)]"
+                        : "text-[var(--foreground)] hover:bg-[var(--surface-hover)]",
+                    )}
+                    style={{
+                      background: activeSort === option ? "var(--primary-muted)" : "transparent",
+                    }}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Products Grid */}
         {loading && (
           <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted">
             <LoaderCircle size={18} className="animate-spin" />
@@ -85,7 +135,7 @@ export default function ShopPage() {
         )}
 
         {!loading && error && (
-          <div className="flex flex-col items-center justify-center gap-4 px-4 py-20 text-center">
+          <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
             <p className="text-sm text-muted">{error}</p>
             <button
               onClick={() => void refresh()}
@@ -97,19 +147,19 @@ export default function ShopPage() {
           </div>
         )}
 
-        {!loading && !error && (
-        <div className="px-4 grid grid-cols-2 gap-3">
-          {sorted.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        {!loading && !error && sorted.length > 0 && (
+          <div className={productGridClass}>
+            {sorted.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
         )}
 
         {!loading && !error && sorted.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center py-20 px-4"
+            className="flex flex-col items-center justify-center py-20"
           >
             <div className="w-16 h-16 rounded-full mb-4 flex items-center justify-center" style={{ background: "var(--surface)" }}>
               <SlidersHorizontal size={24} style={{ color: "var(--muted)" }} />
@@ -120,9 +170,8 @@ export default function ShopPage() {
             </p>
           </motion.div>
         )}
-      </div>
+      </PageShell>
 
-      {/* Sort Bottom Sheet */}
       <AnimatePresence>
         {showSortSheet && (
           <>
@@ -131,7 +180,7 @@ export default function ShopPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowSortSheet(false)}
-              className="fixed inset-0 z-50"
+              className="fixed inset-0 z-50 lg:hidden"
               style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
             />
             <motion.div
@@ -139,7 +188,7 @@ export default function ShopPage() {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", stiffness: 350, damping: 30 }}
-              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl p-6"
+              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl p-6 lg:hidden"
               style={{ background: "var(--background)", border: "1px solid var(--border)" }}
             >
               <div className="flex items-center justify-between mb-5">

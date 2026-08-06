@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Heart, LoaderCircle } from "lucide-react";
 import TopBar from "@/components/TopBar";
 import ProductCard from "@/components/ProductCard";
+import PageShell, { productGridClass } from "@/components/PageShell";
 import { useCatalog } from "@/context/CatalogContext";
 import { useWishlist } from "@/context/WishlistContext";
 
@@ -26,7 +27,7 @@ export default function WishlistPage() {
     <div className="min-h-screen pb-6">
       <TopBar title="Wishlist" />
 
-      <div className="mx-auto max-w-lg px-4 pt-16">
+      <PageShell className="pt-16 lg:pt-24">
         {products.length === 0 ? (
           <div className="py-16 text-center">
             <Heart size={28} className="mx-auto mb-3 text-muted" />
@@ -42,13 +43,13 @@ export default function WishlistPage() {
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className={productGridClass}>
             {products.map((product, index) => (
               <ProductCard key={product.id} product={product} index={index} />
             ))}
           </div>
         )}
-      </div>
+      </PageShell>
     </div>
   );
 }

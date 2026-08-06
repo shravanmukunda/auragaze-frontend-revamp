@@ -5,6 +5,7 @@ import Link from "next/link";
 import { LoaderCircle, MapPin, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import TopBar from "@/components/TopBar";
+import PageShell from "@/components/PageShell";
 import type { AddressInput, SavedAddress } from "@/types/address";
 import { cn } from "@/lib/utils";
 
@@ -140,7 +141,7 @@ export default function AddressesPage() {
     <div className="min-h-screen pb-6">
       <TopBar title="Addresses" />
 
-      <div className="mx-auto max-w-lg space-y-4 px-4 pt-16">
+      <PageShell className="space-y-4 pt-16 lg:pt-24">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm text-muted">Manage delivery addresses for checkout.</p>
           <button
@@ -279,7 +280,7 @@ export default function AddressesPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
             {addresses.map((address) => (
               <div
                 key={address.id}
@@ -339,7 +340,7 @@ export default function AddressesPage() {
         <Link href="/profile" className="block text-center text-sm font-semibold label-accent">
           Back to profile
         </Link>
-      </div>
+      </PageShell>
     </div>
   );
 }

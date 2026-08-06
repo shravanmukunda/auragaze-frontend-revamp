@@ -1,6 +1,6 @@
 # AURAGAZE — Product Requirements Document
 
-**Product:** AURAGAZE — mobile-first platform to sell oversized / graphic t-shirts  
+**Product:** AURAGAZE — responsive platform to sell oversized / graphic t-shirts  
 **App root:** `agz/` (Next.js 16 App Router)  
 **Status:** Storefront UI is largely complete on mock data; backend is scaffolded but mostly disconnected  
 **Last updated:** 2026-07-19
@@ -243,7 +243,7 @@ All admin routes must verify `session.user.role === "ADMIN"`.
 
 ## 10. UX / design constraints
 
-- Preserve existing storefront visual language (mobile-first, `max-w-lg`, framer-motion, theme tokens).
+- Preserve existing storefront visual language (mobile shell below `lg`, desktop chrome + `max-w-6xl` layouts from 1024px, framer-motion, theme tokens).
 - Prefer wiring data over redesigning pages.
 - Admin may use a denser, desktop-first layout; still respect brand colors/fonts.
 - Use `sonner` for success/error toasts.

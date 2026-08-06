@@ -18,6 +18,7 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import TopBar from "@/components/TopBar";
+import PageShell from "@/components/PageShell";
 import { useWishlist } from "@/context/WishlistContext";
 
 const menuItems = [
@@ -93,13 +94,14 @@ export default function ProfilePage() {
     <div className="min-h-screen pb-6">
       <TopBar title="Profile" />
 
-      <div className="pt-16 max-w-lg mx-auto">
-        {/* Profile Header */}
+      <PageShell className="pt-16 lg:pt-24">
+        <div className="lg:grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-8 lg:items-start">
+        <div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="px-4 pt-6 pb-4"
+          className="pt-6 pb-4 lg:pt-0"
         >
           <div className="flex items-center gap-4 mb-6">
             <div className="relative">
@@ -153,7 +155,7 @@ export default function ProfilePage() {
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="mx-4 mb-5 rounded-2xl overflow-hidden relative h-24"
+          className="mb-5 rounded-2xl overflow-hidden relative h-24 lg:h-28"
           style={{
             background: "linear-gradient(135deg, rgba(30,58,138,0.85) 0%, rgba(37,99,235,0.85) 100%)",
           }}
@@ -169,9 +171,10 @@ export default function ProfilePage() {
             AG
           </div>
         </motion.div>
+        </div>
 
-        {/* Menu Items */}
-        <div className="px-4 flex flex-col gap-2 mb-4">
+        <div>
+        <div className="flex flex-col gap-2 mb-4">
           {menuItems.map(({ icon: Icon, label, sub, href }, i) => (
             <motion.div
               key={label}
@@ -203,8 +206,7 @@ export default function ProfilePage() {
           ))}
         </div>
 
-        {/* Sign Out */}
-        <div className="px-4">
+        <div>
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => signOut({ callbackUrl: "/" })}
@@ -215,7 +217,9 @@ export default function ProfilePage() {
             Sign Out
           </motion.button>
         </div>
-      </div>
+        </div>
+        </div>
+      </PageShell>
     </div>
   );
 }

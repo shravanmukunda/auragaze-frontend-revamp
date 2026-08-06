@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { CheckCircle2, LoaderCircle, Package } from "lucide-react";
 import TopBar from "@/components/TopBar";
+import PageShell from "@/components/PageShell";
 import { formatPrice } from "@/lib/utils";
 import type { OrderDetail } from "@/types/order";
 
@@ -51,21 +52,21 @@ export default function OrderConfirmationPage() {
     return (
       <div className="min-h-screen pb-6">
         <TopBar title="Confirmation" />
-        <div className="mx-auto max-w-lg px-4 pt-24 text-center">
+        <PageShell narrow className="pt-24 text-center">
           <p className="mb-4 text-sm text-muted">{error || "Order not found"}</p>
           <Link href="/orders" className="btn-gradient rounded-xl px-5 py-3 text-sm font-bold">
             View orders
           </Link>
-        </div>
+        </PageShell>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pb-6">
+    <div className="min-h-screen pb-6 lg:pb-12">
       <TopBar title="Order placed" />
 
-      <div className="mx-auto max-w-lg px-4 pt-20">
+      <PageShell narrow className="pt-20 lg:pt-28">
         <div className="surface-card rounded-3xl p-6 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">
             <CheckCircle2 size={32} />
@@ -102,7 +103,7 @@ export default function OrderConfirmationPage() {
             Continue shopping
           </Link>
         </div>
-      </div>
+      </PageShell>
     </div>
   );
 }

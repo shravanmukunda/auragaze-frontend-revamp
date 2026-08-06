@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { LoaderCircle, MapPin } from "lucide-react";
 import TopBar from "@/components/TopBar";
+import PageShell from "@/components/PageShell";
 import OrderStatusTimeline from "@/components/OrderStatusTimeline";
 import {
   orderStatusLabel,
@@ -56,12 +57,12 @@ export default function OrderDetailPage() {
     return (
       <div className="min-h-screen pb-6">
         <TopBar title="Order" />
-        <div className="mx-auto max-w-lg px-4 pt-24 text-center">
+        <PageShell className="pt-24 text-center">
           <p className="mb-4 text-sm text-muted">{error || "Order not found"}</p>
           <Link href="/orders" className="btn-gradient rounded-xl px-5 py-3 text-sm font-bold">
             Back to orders
           </Link>
-        </div>
+        </PageShell>
       </div>
     );
   }
@@ -69,11 +70,11 @@ export default function OrderDetailPage() {
   const address = order.shippingAddress;
 
   return (
-    <div className="min-h-screen pb-6">
+    <div className="min-h-screen pb-6 lg:pb-12">
       <TopBar title="Order details" />
 
-      <div className="mx-auto max-w-lg space-y-4 px-4 pt-16">
-        <section className="surface-card rounded-2xl p-4">
+      <PageShell className="space-y-4 pt-16 lg:pt-24">
+        <section className="surface-card rounded-2xl p-4 lg:p-5">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <p className="font-mono text-[11px] text-muted">{order.id}</p>
@@ -101,7 +102,8 @@ export default function OrderDetailPage() {
           <OrderStatusTimeline status={order.status} />
         </section>
 
-        <section className="surface-card rounded-2xl p-4">
+        <div className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
+        <section className="surface-card rounded-2xl p-4 lg:p-5">
           <h2 className="mb-3 font-bold text-sm">Items</h2>
           <div className="space-y-3">
             {order.items.map((item) => (
@@ -121,7 +123,7 @@ export default function OrderDetailPage() {
           </div>
         </section>
 
-        <section className="surface-card rounded-2xl p-4">
+        <section className="surface-card rounded-2xl p-4 lg:p-5">
           <div className="mb-3 flex items-center gap-2">
             <MapPin size={16} className="label-accent" />
             <h2 className="font-bold text-sm">Delivery address</h2>
@@ -137,7 +139,9 @@ export default function OrderDetailPage() {
           </div>
         </section>
 
-        <section className="surface-card rounded-2xl p-4">
+        </div>
+
+        <section className="surface-card rounded-2xl p-4 lg:p-5 lg:max-w-xl">
           <h2 className="mb-3 font-bold text-sm">Payment summary</h2>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between text-muted">
@@ -164,7 +168,7 @@ export default function OrderDetailPage() {
             </div>
           </div>
         </section>
-      </div>
+      </PageShell>
     </div>
   );
 }

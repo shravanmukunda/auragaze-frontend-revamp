@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import TopBar from "@/components/TopBar";
+import PageShell from "@/components/PageShell";
 
 const sections = [
   {
@@ -66,20 +67,20 @@ export default function TermsPage() {
     <div className="min-h-screen pb-6">
       <TopBar title="Terms & Conditions" />
 
-      <div className="pt-16 max-w-lg mx-auto px-4">
-        {/* Header */}
+      <PageShell narrow className="pt-16 lg:pt-24">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="mb-8"
         >
-          <p className="text-[11px] font-semibold label-accent uppercase tracking-widest mb-1">
+          <p className="text-[11px] lg:text-xs font-semibold label-accent uppercase tracking-widest mb-1">
             Legal
           </p>
-          <h1 className="text-3xl font-black leading-tight" style={{ color: "var(--foreground)" }}>
+          <h1 className="text-3xl lg:text-5xl font-black leading-tight" style={{ color: "var(--foreground)" }}>
             Terms &amp;
-            <br />
+            <br className="lg:hidden" />
+            {" "}
             <span className="text-brand">Conditions</span>
           </h1>
         </motion.div>
@@ -101,7 +102,7 @@ export default function TermsPage() {
               >
                 {section.title}
               </h2>
-              <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+              <p className="text-sm lg:text-base leading-relaxed" style={{ color: "var(--muted)" }}>
                 {section.content}
               </p>
             </motion.div>
@@ -118,7 +119,7 @@ export default function TermsPage() {
         >
           Last updated: July 2026
         </motion.p>
-      </div>
+      </PageShell>
     </div>
   );
 }
